@@ -1,4 +1,4 @@
-﻿from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
@@ -281,9 +281,14 @@ class ProfilePictureTests(TestCase):
             role=UserProfile.Role.DRIVER,
         )
 
-    def make_image(self, name="profile.png", image_format="PNG"):
+    def make_image(
+        self,
+        name="profile.png",
+        image_format="PNG",
+        size=(16, 16),
+    ):
         buffer = BytesIO()
-        Image.new("RGB", (16, 16), color="green").save(
+        Image.new("RGB", size, color="green").save(
             buffer,
             format=image_format,
         )
@@ -292,7 +297,6 @@ class ProfilePictureTests(TestCase):
             buffer.getvalue(),
             content_type="image/png",
         )
-
     def test_customer_can_open_profile_settings(self):
         self.client.force_login(self.customer)
         response = self.client.get(reverse("profile_settings"))
@@ -364,6 +368,39 @@ class ProfilePictureTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.profile.refresh_from_db()
         self.assertFalse(self.profile.profile_picture)
+    def test_png_content_with_jpg_extension_is_accepted(self):
+        from accounts.forms import ProfilePictureForm
+
+        upload = self.make_image(name="profile.jpg")
+        form = ProfilePictureForm(files={"profile_picture": upload})
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_unsupported_gif_image_is_rejected(self):
+        from accounts.forms import ProfilePictureForm
+
+        upload = self.make_image(
+            name="profile.gif",
+            image_format="GIF",
+        )
+        form = ProfilePictureForm(files={"profile_picture": upload})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("profile_picture", form.errors)
+
+    def test_image_exceeding_pixel_limit_is_rejected(self):
+        from accounts.forms import ProfilePictureForm
+
+        upload = self.make_image(
+            name="large.png",
+            size=(5001, 5000),
+        )
+        self.assertLessEqual(upload.size, 5 * 1024 * 1024)
+
+        form = ProfilePictureForm(files={"profile_picture": upload})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("profile_picture", form.errors)
 from pathlib import Path
 from datetime import timedelta
 
@@ -462,4 +499,3 @@ class AssignedDriverRidesTests(TestCase):
         self.assertContains(response, "Polokwane")
         self.assertNotContains(response, "Witten")
         self.assertNotContains(response, "Tzaneen")
-

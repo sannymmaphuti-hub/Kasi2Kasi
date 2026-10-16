@@ -1,6 +1,11 @@
-﻿from django import forms
+from django import forms
+from django.contrib.auth.forms import UserCreationForm
+import warnings
+
+from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
+from PIL import Image, UnidentifiedImageError
 
 
 class RegistrationForm(UserCreationForm):
@@ -69,10 +74,62 @@ class ProfilePictureForm(forms.ModelForm):
     def clean_profile_picture(self):
         image = self.cleaned_data.get("profile_picture")
 
-        if image:
-            if image.size > 5 * 1024 * 1024:
-                raise forms.ValidationError(
-                    "The profile picture must be 5 MB or smaller."
+        if not image:
+            return image
+
+        if image.size > 5 * 1024 * 1024:
+            raise forms.ValidationError(
+                "The profile picture must be 5 MB or smaller."
+            )
+
+        allowed_formats = {"JPEG", "PNG", "WEBP"}
+        max_pixels = 25_000_000
+
+        try:
+            image.seek(0)
+
+            # Treat Pillow's decompression-bomb warning as a validation
+            # failure rather than allowing suspicious images through.
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    "error",
+                    Image.DecompressionBombWarning,
                 )
+
+                with Image.open(image) as decoded:
+                    if decoded.format not in allowed_formats:
+                        raise forms.ValidationError(
+                            "Upload a JPEG, PNG, or WebP image."
+                        )
+
+                    width, height = decoded.size
+                    if width * height > max_pixels:
+                        raise forms.ValidationError(
+                            "The image dimensions must not exceed "
+                            "25 million pixels."
+                        )
+
+                    decoded.verify()
+
+                # verify() checks file integrity but does not fully decode
+                # pixels, so reopen the file and force a complete decode.
+                image.seek(0)
+                with Image.open(image) as decoded:
+                    decoded.load()
+
+        except forms.ValidationError:
+            raise
+        except (
+            UnidentifiedImageError,
+            OSError,
+            ValueError,
+            Image.DecompressionBombError,
+            Image.DecompressionBombWarning,
+        ) as exc:
+            raise forms.ValidationError(
+                "The uploaded file is not a valid, supported image."
+            ) from exc
+        finally:
+            image.seek(0)
 
         return image
