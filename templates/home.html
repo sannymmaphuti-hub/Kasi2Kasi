@@ -1,0 +1,142 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Kasi2Kasi connects local communities with transport options through clear communication and confirmed bookings.">
+    <title>Kasi2Kasi | Local rides, real people</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <nav>
+            <a href="#how-it-works">How it works</a>
+            <a href="#our-values">Our values</a>
+            <a href="{% url 'account_login' %}">Sign in</a>
+            <a href="{% url 'customer_signup' %}">Join</a>
+            <a class="nav-button" href="{% url 'request_ride' %}">Request a ride</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="hero-content">
+                <span class="eyebrow">ROOTED IN COMMUNITY</span>
+                <h1>Your journey.<br><span>Your community.</span></h1>
+                <p>
+                    Local rides built around clear communication, reliable
+                    confirmations and the people who make our communities home.
+                </p>
+                <div class="hero-actions">
+                    <a class="button button-gold" href="{% url 'request_ride' %}">
+                        Request a ride <span aria-hidden="true">→</span>
+                    </a>
+                    <a class="button button-outline" href="#how-it-works">
+                        See how it works
+                    </a>
+                </div>
+                <p class="hero-note">
+                    Every request is subject to driver availability and confirmation.
+                </p>
+            </div>
+
+            <div class="hero-card">
+                <div class="route-icon" aria-hidden="true">↗</div>
+                <span class="card-label">YOUR NEXT JOURNEY</span>
+                <h2>Closer to where<br>you need to be.</h2>
+                <div class="route-line">
+                    <span class="route-dot"></span>
+                    <div>
+                        <small>YOUR PICKUP</small>
+                        <strong>Choose your location</strong>
+                    </div>
+                </div>
+                <div class="route-line">
+                    <span class="route-dot route-dot-gold"></span>
+                    <div>
+                        <small>YOUR DESTINATION</small>
+                        <strong>Wherever you're headed</strong>
+                    </div>
+                </div>
+                <a class="card-link" href="{% url 'request_ride' %}">
+                    Plan your ride <span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="trust-strip" id="our-values">
+            <div><strong>01</strong><span>Agree on the details</span></div>
+            <div><strong>02</strong><span>Confirm before travelling</span></div>
+            <div><strong>03</strong><span>Keep community at heart</span></div>
+        </section>
+
+        <section class="how-section" id="how-it-works">
+            <div class="section-heading">
+                <span class="eyebrow">SIMPLE BY DESIGN</span>
+                <h2>A better way to arrange<br>your local ride.</h2>
+            </div>
+            <div class="steps">
+                <article class="step-card">
+                    <span class="step-number">01</span>
+                    <h3>Tell us where</h3>
+                    <p>Share your pickup point, destination and preferred travel time.</p>
+                </article>
+                <article class="step-card">
+                    <span class="step-number">02</span>
+                    <h3>We check availability</h3>
+                    <p>We review your request and work to find an available driver.</p>
+                </article>
+                <article class="step-card">
+                    <span class="step-number">03</span>
+                    <h3>Confirm your trip</h3>
+                    <p>We contact you to agree on the price and details before your trip is confirmed.</p>
+                </article>
+            </div>
+            <div class="center-action">
+                <a class="button button-green" href="{% url 'request_ride' %}">
+                    Start a ride request <span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="community-section">
+            <div>
+                <span class="eyebrow">BUILT WITH THE COMMUNITY</span>
+                <h2>Local knowledge.<br>Human connection.</h2>
+            </div>
+            <p>
+                Kasi2Kasi is being built to help passengers find transport
+                and help eligible local drivers connect with more customers.
+                We believe trust begins with communication and follows through
+                with accountability.
+            </p>
+        </section>
+
+        <section class="driver-cta">
+            <div>
+                <span class="eyebrow">FOR LOCAL DRIVERS</span>
+                <h2>Good drivers deserve to be found.</h2>
+                <p>Interested in joining our future driver network?</p>
+            </div>
+            <a class="button button-gold" href="{% url 'driver_signup' %}">
+                Register your interest <span aria-hidden="true">→</span>
+            </a>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <a class="brand footer-brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <p>Local rides. Clear communication. Community first.</p>
+        <small>&copy; {% now "Y" %} Kasi2Kasi. All rights reserved.</small>
+    </footer>
+</body>
+</html>
+

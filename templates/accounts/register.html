@@ -1,0 +1,68 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create your Kasi2Kasi account</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <a class="back-link" href="{% url 'home' %}">Back to home</a>
+    </header>
+
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">JOIN OUR COMMUNITY</span>
+            {% if is_driver_registration %}
+                <h1>Join as a driver.</h1>
+                <p>Create your driver account. You must be approved before accessing driver opportunities.</p>
+            {% else %}
+                <h1>Your journey starts here.</h1>
+                <p>Create a customer account to join the Kasi2Kasi community.</p>
+            {% endif %}
+        </div>
+
+        <form class="booking-form" method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="error-summary">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div class="form-grid">
+                {% for field in form %}
+                    <div class="field">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-disclaimer">{{ field.help_text|safe }}</div>
+                        {% endif %}
+                        {% if field.errors %}
+                            <ul class="errorlist">
+                                {% for error in field.errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button class="button button-green submit-button" type="submit">
+                Create account
+            </button>
+
+            <p class="form-disclaimer">
+                Already registered?
+                <a class="back-link" href="{% url 'account_login' %}">Sign in</a>
+            </p>
+        </form>
+    </main>
+</body>
+</html>

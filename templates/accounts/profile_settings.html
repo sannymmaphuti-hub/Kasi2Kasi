@@ -1,0 +1,129 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#174b35">
+    <title>My Profile | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body class="profile-page">
+
+    <header class="profile-topbar">
+        <a class="profile-brand" href="{% url 'account_dashboard' %}">
+            <span class="profile-brand-mark">K2K</span>
+            <span class="profile-brand-name">Kasi2Kasi</span>
+        </a>
+
+        <a class="profile-back-link"
+           href="{% url 'account_dashboard' %}">
+            ← Dashboard
+        </a>
+    </header>
+
+    <main class="profile-main">
+        <section class="profile-heading">
+            <span class="profile-eyebrow">YOUR ACCOUNT</span>
+            <h1>My Profile</h1>
+            <p>Make your Kasi2Kasi account feel like yours.</p>
+        </section>
+
+        {% if messages %}
+            <div class="profile-messages" aria-live="polite">
+                {% for message in messages %}
+                    <div class="profile-message {{ message.tags }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <h2>Profile picture</h2>
+                    <p>Help your community recognise you.</p>
+                </div>
+                <span class="profile-status-badge">Your account</span>
+            </div>
+
+            <div class="profile-identity">
+                <div class="profile-avatar">
+                    {% if request.user.profile.profile_picture %}
+                        <img
+                            src="{{ request.user.profile.profile_picture.url }}"
+                            alt="Your profile picture"
+                        >
+                    {% else %}
+                        <span class="profile-avatar-placeholder"
+                              aria-label="No profile picture uploaded">
+                            {{ request.user.first_name|default:request.user.username|first|upper }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="profile-identity-details">
+                    <h3>
+                        {{ request.user.get_full_name|default:request.user.username }}
+                    </h3>
+                    <p>@{{ request.user.username }}</p>
+                    <span class="profile-account-type">
+                        {{ request.user.profile.get_role_display }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="profile-divider"></div>
+
+            <form method="post"
+                  enctype="multipart/form-data"
+                  class="profile-form">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="profile-form-errors">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                <div class="profile-upload-field">
+                    <label for="{{ form.profile_picture.id_for_label }}">
+                        Choose a profile picture
+                    </label>
+
+                    <p class="profile-upload-help">
+                        JPG or PNG recommended. Maximum file size: 5 MB.
+                    </p>
+
+                    {{ form.profile_picture }}
+
+                    {% if form.profile_picture.errors %}
+                        <div class="profile-form-errors">
+                            {{ form.profile_picture.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="profile-save-button">
+                    Save profile picture
+                    <span aria-hidden="true">→</span>
+                </button>
+            </form>
+
+            <div class="profile-note">
+                <span class="profile-note-icon" aria-hidden="true">✓</span>
+                <p>
+                    Your journey. Your community.
+                    Keep your account details safe.
+                </p>
+            </div>
+        </section>
+
+        <p class="profile-footer">
+            Kasi2Kasi · Connecting people, one journey at a time.
+        </p>
+    </main>
+
+</body>
+</html>

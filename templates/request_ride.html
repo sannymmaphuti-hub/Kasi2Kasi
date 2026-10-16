@@ -1,0 +1,451 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Request a Ride | Kasi2Kasi</title>
+
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <a class="back-link" href="{% url 'home' %}">← Back home</a>
+    </header>
+
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">LET'S PLAN YOUR JOURNEY</span>
+            <h1>Request your ride.</h1>
+            <p>
+                Tell us where you're going. Use your location or select
+                your pickup and destination directly on the map.
+            </p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+                <div class="success-message" role="status">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post" class="booking-form" id="booking-form">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="error-summary">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {{ form.pickup_latitude }}
+            {{ form.pickup_longitude }}
+            {{ form.destination_latitude }}
+            {{ form.destination_longitude }}
+
+            <section class="location-picker" aria-labelledby="map-heading">
+                <div class="location-picker-heading">
+                    <span class="eyebrow">YOUR JOURNEY</span>
+                    <h2 id="map-heading">Choose your locations</h2>
+                    <p>
+                        Select a point on the map, or use GPS for your
+                        pickup. You can move either marker to fine-tune it.
+                    </p>
+                </div>
+
+                <div class="map-actions">
+                    <button
+                        type="button"
+                        class="button button-green"
+                        id="use-current-location"
+                    >
+                        ◎ Use my current location
+                    </button>
+
+                    <button
+                        type="button"
+                        class="map-mode-button active"
+                        id="choose-pickup"
+                        aria-pressed="true"
+                    >
+                        1. Choose pickup
+                    </button>
+
+                    <button
+                        type="button"
+                        class="map-mode-button"
+                        id="choose-destination"
+                        aria-pressed="false"
+                    >
+                        2. Choose destination
+                    </button>
+                </div>
+
+                <p
+                    id="map-status"
+                    class="map-status"
+                    role="status"
+                    aria-live="polite"
+                >
+                    Click the map to place your pickup pin.
+                    GPS is optional.
+                </p>
+
+                <div
+                    id="ride-map"
+                    class="ride-map"
+                    role="application"
+                    aria-label="Interactive map for selecting pickup and destination"
+                ></div>
+
+                <p class="map-help">
+                    No street name? That's okay. Choose a nearby landmark
+                    or place the pin as close as possible to your location.
+                    Add directions below if needed.
+                </p>
+
+                <div class="coordinate-summary">
+                    <div>
+                        <strong>Pickup pin</strong>
+                        <span id="pickup-coordinate-summary">Not selected</span>
+                    </div>
+                    <div>
+                        <strong>Destination pin</strong>
+                        <span id="destination-coordinate-summary">
+                            Not selected
+                        </span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="form-grid">
+                <div class="field">
+                    <label for="{{ form.customer_name.id_for_label }}">
+                        Full name
+                    </label>
+                    {{ form.customer_name }}
+                    {{ form.customer_name.errors }}
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.contact_number.id_for_label }}">
+                        Contact number
+                    </label>
+                    {{ form.contact_number }}
+                    {{ form.contact_number.errors }}
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.pickup_location.id_for_label }}">
+                        Pickup landmark or description
+                    </label>
+                    {{ form.pickup_location }}
+                    {{ form.pickup_location.errors }}
+                    {{ form.pickup_latitude.errors }}
+                    {{ form.pickup_longitude.errors }}
+                    <small>
+                        For example, near a shop, school, clinic or local landmark.
+                    </small>
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.destination.id_for_label }}">
+                        Destination landmark or description
+                    </label>
+                    {{ form.destination }}
+                    {{ form.destination.errors }}
+                    {{ form.destination_latitude.errors }}
+                    {{ form.destination_longitude.errors }}
+                    <small>
+                        Describe the destination even if it has no street address.
+                    </small>
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.travel_datetime.id_for_label }}">
+                        Date and time
+                    </label>
+                    {{ form.travel_datetime }}
+                    {{ form.travel_datetime.errors }}
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.passenger_count.id_for_label }}">
+                        Number of passengers
+                    </label>
+                    {{ form.passenger_count }}
+                    {{ form.passenger_count.errors }}
+                </div>
+
+                <div class="field field-full">
+                    <label for="{{ form.additional_notes.id_for_label }}">
+                        Additional details (optional)
+                    </label>
+                    {{ form.additional_notes }}
+                    {{ form.additional_notes.errors }}
+                </div>
+            </div>
+
+            <button class="button button-green submit-button" type="submit">
+                Send ride request <span aria-hidden="true">→</span>
+            </button>
+
+            <p class="form-disclaimer">
+                This is a request, not a confirmed booking. We will discuss
+                driver availability and pricing with you before confirming.
+                Your location coordinates will be included with the request
+                so we can identify your pickup and destination.
+                Please do not include passwords, identity numbers or other
+                sensitive personal information in the notes.
+            </p>
+        </form>
+    </main>
+
+    <footer class="site-footer">
+        <a class="brand footer-brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <small>&copy; {% now "Y" %} Kasi2Kasi</small>
+    </footer>
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+
+    <script>
+        (() => {
+            const mapElement = document.getElementById("ride-map");
+            const statusElement = document.getElementById("map-status");
+
+            if (!mapElement || typeof L === "undefined") {
+                statusElement.textContent =
+                    "The map could not load. You can still enter location descriptions.";
+                return;
+            }
+
+            const fields = {
+                pickup: {
+                    latitude: document.getElementById("id_pickup_latitude"),
+                    longitude: document.getElementById("id_pickup_longitude"),
+                    description: document.getElementById("id_pickup_location"),
+                    summary: document.getElementById("pickup-coordinate-summary"),
+                    label: "Pickup"
+                },
+                destination: {
+                    latitude: document.getElementById("id_destination_latitude"),
+                    longitude: document.getElementById("id_destination_longitude"),
+                    description: document.getElementById("id_destination"),
+                    summary: document.getElementById("destination-coordinate-summary"),
+                    label: "Destination"
+                }
+            };
+
+            // Approximate regional starting view, not a user's location.
+            const map = L.map("ride-map").setView([-23.75, 29.95], 10);
+
+            L.tileLayer(
+                "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+                {
+                    maxZoom: 19,
+                    attribution:
+                        '&copy; OpenStreetMap contributors'
+                }
+            ).addTo(map);
+
+            const markers = {
+                pickup: null,
+                destination: null
+            };
+
+            let activeMode = "pickup";
+
+            function coordinatesFromFields(place) {
+                const latitude = place.latitude.value.trim();
+                const longitude = place.longitude.value.trim();
+
+                if (latitude === "" || longitude === "") {
+                    return null;
+                }
+
+                const lat = Number(latitude);
+                const lng = Number(longitude);
+
+                if (
+                    !Number.isFinite(lat) ||
+                    !Number.isFinite(lng) ||
+                    lat < -90 ||
+                    lat > 90 ||
+                    lng < -180 ||
+                    lng > 180
+                ) {
+                    return null;
+                }
+
+                return [lat, lng];
+            }
+
+            function updateSummary(key, latlng) {
+                const place = fields[key];
+
+                place.latitude.value = latlng.lat.toFixed(6);
+                place.longitude.value = latlng.lng.toFixed(6);
+
+                place.summary.textContent =
+                    latlng.lat.toFixed(6) + ", " +
+                    latlng.lng.toFixed(6);
+
+                if (!place.description.value.trim()) {
+                    place.description.placeholder =
+                        "Map pin selected — add a landmark or description";
+                }
+            }
+
+            function placeMarker(key, latlng) {
+                const place = fields[key];
+
+                if (!markers[key]) {
+                    markers[key] = L.marker(latlng, {
+                        draggable: true,
+                        autoPan: true
+                    }).addTo(map);
+
+                    markers[key].bindPopup(place.label);
+
+                    markers[key].on("dragend", () => {
+                        const newPosition = markers[key].getLatLng();
+                        updateSummary(key, newPosition);
+                        statusElement.textContent =
+                            place.label + " pin updated.";
+                    });
+                } else {
+                    markers[key].setLatLng(latlng);
+                }
+
+                markers[key].setPopupContent(place.label);
+                updateSummary(key, latlng);
+            }
+
+            function setActiveMode(mode) {
+                activeMode = mode;
+
+                document.getElementById("choose-pickup")
+                    .classList.toggle("active", mode === "pickup");
+                document.getElementById("choose-destination")
+                    .classList.toggle("active", mode === "destination");
+
+                document.getElementById("choose-pickup")
+                    .setAttribute("aria-pressed", String(mode === "pickup"));
+                document.getElementById("choose-destination")
+                    .setAttribute("aria-pressed", String(mode === "destination"));
+
+                statusElement.textContent =
+                    "Click the map to place your " +
+                    fields[mode].label.toLowerCase() +
+                    " pin. You can drag it afterwards.";
+            }
+
+            document.getElementById("choose-pickup")
+                .addEventListener("click", () => setActiveMode("pickup"));
+
+            document.getElementById("choose-destination")
+                .addEventListener("click", () => setActiveMode("destination"));
+
+            map.on("click", (event) => {
+                placeMarker(activeMode, event.latlng);
+
+                statusElement.textContent =
+                    fields[activeMode].label +
+                    " pin selected. You can drag it or choose the other location.";
+            });
+
+            document.getElementById("use-current-location")
+                .addEventListener("click", () => {
+                    if (!navigator.geolocation) {
+                        statusElement.textContent =
+                            "GPS is not available in this browser. You can select your pickup on the map instead.";
+                        return;
+                    }
+
+                    statusElement.textContent =
+                        "Requesting your location. Check your browser's permission prompt.";
+
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const latlng = L.latLng(
+                                position.coords.latitude,
+                                position.coords.longitude
+                            );
+
+                            setActiveMode("pickup");
+                            placeMarker("pickup", latlng);
+                            map.setView(latlng, 16);
+
+                            statusElement.textContent =
+                                "Pickup set to your current location. Please check the pin before submitting.";
+                        },
+                        (error) => {
+                            const messages = {
+                                1: "Location permission was denied. You can still select your pickup manually on the map.",
+                                2: "Your location could not be determined. Try again or select your pickup manually.",
+                                3: "The location request timed out. Try again or select your pickup manually."
+                            };
+
+                            statusElement.textContent =
+                                messages[error.code] ||
+                                "GPS is unavailable. Please select your pickup manually on the map.";
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 15000,
+                            maximumAge: 60000
+                        }
+                    );
+                });
+
+            // Restore selected pins when the form is redisplayed after errors.
+            let restoredPins = [];
+
+            Object.entries(fields).forEach(([key, place]) => {
+                const coordinates = coordinatesFromFields(place);
+
+                if (coordinates) {
+                    const latlng = L.latLng(coordinates[0], coordinates[1]);
+                    placeMarker(key, latlng);
+                    restoredPins.push(latlng);
+                }
+            });
+
+            if (restoredPins.length === 1) {
+                map.setView(restoredPins[0], 15);
+            } else if (restoredPins.length === 2) {
+                map.fitBounds(L.latLngBounds(restoredPins), {
+                    padding: [35, 35],
+                    maxZoom: 15
+                });
+            }
+
+            if (!coordinatesFromFields(fields.pickup)) {
+                document.getElementById("use-current-location").click();
+            }
+
+            // Give Leaflet the correct dimensions after the page layout settles.
+            window.setTimeout(() => map.invalidateSize(), 100);
+        })();
+    </script>
+</body>
+</html>
+
+

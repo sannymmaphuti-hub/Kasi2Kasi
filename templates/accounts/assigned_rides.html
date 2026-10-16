@@ -1,0 +1,105 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My assigned rides | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            <button class="button button-green" type="submit">Sign out</button>
+        </form>
+    </header>
+
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">DRIVER OPERATIONS</span>
+            <h1>My assigned rides</h1>
+            <p>Review the journey details for rides assigned to your account.</p>
+        </div>
+
+        {% for message in messages %}
+            <div class="success-message">{{ message }}</div>
+        {% endfor %}
+
+        {% for section_title, section_rides in ride_sections %}
+            <section class="booking-form ride-section">
+                <h2>{{ section_title }}</h2>
+
+                {% if section_rides %}
+                    {% for ride in section_rides %}
+                        <div class="assigned-ride">
+                            <h3>{{ ride.pickup_location }} &rarr; {{ ride.destination }}</h3>
+
+                            <p><strong>Passenger:</strong> {{ ride.customer_name }}</p>
+                            <p><strong>Contact:</strong> {{ ride.contact_number }}</p>
+                            <p><strong>Travel date and time:</strong> {{ ride.travel_datetime|date:"d M Y, H:i" }}</p>
+                            <p><strong>Passengers:</strong> {{ ride.passenger_count }}</p>
+                            <p><strong>Booking status:</strong> {{ ride.get_status_display }}</p>
+
+                            {% if ride.proposed_fare %}
+                                <p><strong>Proposed fare:</strong> R{{ ride.proposed_fare|floatformat:2 }}</p>
+                            {% else %}
+                                <p><strong>Proposed fare:</strong> Awaiting quote</p>
+                            {% endif %}
+
+                            {% if ride.agreed_fare %}
+                                <p><strong>Agreed fare:</strong> R{{ ride.agreed_fare|floatformat:2 }}</p>
+                            {% else %}
+                                <p><strong>Agreed fare:</strong> Awaiting customer confirmation</p>
+                            {% endif %}
+
+                            {% if ride.additional_notes %}
+                                <p><strong>Journey notes:</strong> {{ ride.additional_notes|linebreaksbr }}</p>
+                            {% endif %}
+
+                            {% if ride.pickup_latitude != None and ride.pickup_longitude != None %}
+                                <p>
+                                    <a href="https://www.openstreetmap.org/?mlat={{ ride.pickup_latitude }}&mlon={{ ride.pickup_longitude }}#map=17/{{ ride.pickup_latitude }}/{{ ride.pickup_longitude }}"
+                                       target="_blank" rel="noopener noreferrer">
+                                        View pickup location
+                                    </a>
+                                </p>
+                            {% endif %}
+
+                            {% if ride.destination_latitude != None and ride.destination_longitude != None %}
+                                <p>
+                                    <a href="https://www.openstreetmap.org/?mlat={{ ride.destination_latitude }}&mlon={{ ride.destination_longitude }}#map=17/{{ ride.destination_latitude }}/{{ ride.destination_longitude }}"
+                                       target="_blank" rel="noopener noreferrer">
+                                        View destination
+                                    </a>
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        {% if not forloop.last %}
+                            <hr>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p>No rides in this section.</p>
+                {% endif %}
+            </section>
+        {% empty %}
+            <section class="booking-form">
+                <h2>No rides assigned yet</h2>
+                <p>When Kasi2Kasi assigns a ride to your account, its details will appear here.</p>
+            </section>
+        {% endfor %}
+
+        <p>
+            <a class="button button-outline" href="{% url 'account_dashboard' %}">
+                Back to driver dashboard
+            </a>
+        </p>
+    </main>
+</body>
+</html>

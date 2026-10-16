@@ -1,0 +1,91 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Driver dashboard | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <form method="post" action="{% url 'account_logout' %}">
+            {% csrf_token %}
+            <button class="button button-green" type="submit">Sign out</button>
+        </form>
+    </header>
+
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">DRIVER ACCOUNT</span>
+            <h1>Welcome, {{ request.user.first_name|default:request.user.username }}.</h1>
+            <p>Your driver account and approval status.</p>
+        </div>
+
+        {% for message in messages %}
+            <div class="success-message">{{ message }}</div>
+        {% endfor %}
+
+        <section class="booking-form">
+            <h2>Driver approval</h2>
+            {% if profile.driver_status == "APPROVED" %}
+                <div class="success-message">
+                    Your account is approved. You can view the rides assigned to you below.
+                </div>
+            {% elif profile.driver_status == "REJECTED" %}
+                <p>Your driver application has not been approved. Please contact the Kasi2Kasi team for further information.</p>
+            {% elif profile.driver_status == "SUSPENDED" %}
+                <p>Your driver access is currently suspended. Please contact the Kasi2Kasi team.</p>
+            {% else %}
+                <p>Your account is <strong>pending approval</strong>. You cannot accept trips until Kasi2Kasi has reviewed and approved your driver account.</p>
+            {% endif %}
+
+            {% if profile.driver_status == "APPROVED" %}
+                <p><a class="button button-green" href="{% url 'assigned_driver_rides' %}">View my assigned rides</a></p>
+            {% endif %}
+            <p class="form-disclaimer">
+                Account type: {{ profile.get_role_display }}.
+                Approval status: {{ profile.get_driver_status_display }}.
+            </p>
+            <a class="button button-outline" href="{% url 'home' %}">Return home</a>
+        </section>
+    </main>
+
+<section class="dashboard-profile-card">
+    <div class="dashboard-profile-avatar">
+        {% if profile.profile_picture %}
+            <img
+                src="{{ profile.profile_picture.url }}"
+                alt="Profile picture for {{ request.user.username }}"
+            >
+        {% else %}
+            <span>
+                {{ request.user.first_name|default:request.user.username|first|upper }}
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-profile-info">
+        <span class="dashboard-profile-eyebrow">YOUR PROFILE</span>
+        <h2>{{ request.user.get_full_name|default:request.user.username }}</h2>
+        <p>
+            {{ profile.get_role_display }} account
+        </p>
+        <a class="dashboard-profile-link"
+           href="{% url 'profile_settings' %}">
+            {% if profile.profile_picture %}
+                Update profile picture
+            {% else %}
+                Add your profile picture
+            {% endif %}
+            <span aria-hidden="true">→</span>
+        </a>
+    </div>
+</section>
+
+</body>
+</html>
