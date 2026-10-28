@@ -66,3 +66,7 @@ backups/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local development helper scripts
+/add_original_estimate_display.ps1
+/patch_driver_fare.py
