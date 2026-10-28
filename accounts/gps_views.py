@@ -122,3 +122,4 @@ def driver_location_api(request, ride_id):
         "longitude": str(location.longitude),
         "updated_at": location.updated_at.isoformat(),
     })
+

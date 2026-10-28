@@ -53,7 +53,7 @@ class UserProfile(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.user.username} ΓÇö {self.get_role_display()}"
+        return f"{self.user.username} — {self.get_role_display()}"
 
 class DriverVehicle(models.Model):
     """Vehicle registered by a driver for administrative verification."""
@@ -95,3 +95,4 @@ class DriverVehicle(models.Model):
 
     def __str__(self):
         return f"{self.make} {self.model} ({self.registration_number})"
+

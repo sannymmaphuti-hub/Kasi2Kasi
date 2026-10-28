@@ -36,3 +36,33 @@ config/settings.py.backup-*
 Thumbs.db
 *.backup-*
 *.before-restore-*
+
+# Local secrets and environment
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local databases
+db.sqlite3
+db.sqlite3-*
+
+# Local backups and recovery files
+*.bak
+*.bak_*
+*.backup
+*.backup_*
+*.recovery
+*.recovery_*
+backups/
+
+# Local editor and operating-system files
+.vscode/
+.DS_Store
+Thumbs.db

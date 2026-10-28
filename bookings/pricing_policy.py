@@ -1,4 +1,4 @@
-"""Independent policy checks for proposed fare adjustments."""
+﻿"""Independent policy checks for proposed fare adjustments."""
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation

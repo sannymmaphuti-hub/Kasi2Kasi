@@ -33,7 +33,7 @@
         {% if rides %}
             {% for ride in rides %}
                 <section class="booking-form">
-                    <h2>{{ ride.pickup_location }} ├óΓÇáΓÇÖ {{ ride.destination }}</h2>
+                    <h2>{{ ride.pickup_location }} → {{ ride.destination }}</h2>
                     <p><strong>Travel date:</strong> {{ ride.travel_datetime|date:"d M Y, H:i" }}</p>
                     <p><strong>Passengers:</strong> {{ ride.passenger_count }}</p>
                     <p><strong>Status:</strong> {{ ride.get_status_display }}</p>
@@ -91,3 +91,4 @@
     </main>
 </body>
 </html>
+

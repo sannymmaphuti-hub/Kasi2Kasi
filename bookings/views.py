@@ -271,7 +271,7 @@ def reverse_geocode_api(request):
         return JsonResponse({
             "address": None,
             "provider": None,
-            "attribution": "├é┬⌐ OpenStreetMap contributors",
+            "attribution": "© OpenStreetMap contributors",
         })
 
     address = result.get("address")
@@ -281,7 +281,7 @@ def reverse_geocode_api(request):
     return JsonResponse({
         "address": address,
         "provider": result.get("provider"),
-        "attribution": result.get("attribution", "├é┬⌐ OpenStreetMap contributors"),
+        "attribution": result.get("attribution", "© OpenStreetMap contributors"),
     })
 
 @login_required
@@ -488,3 +488,5 @@ def cancel_ride(request, ride_id):
         "Your ride request has been cancelled.",
     )
     return redirect("my_rides")
+
+

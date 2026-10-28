@@ -100,3 +100,6 @@ urlpatterns = [
         name="complete_assigned_ride",
     ),
 ]
+
+
+

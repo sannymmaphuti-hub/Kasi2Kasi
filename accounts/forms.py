@@ -236,3 +236,4 @@ class DriverVehicleUpdateForm(forms.ModelForm):
 
     def clean_model(self):
         return self.cleaned_data["model"].strip()
+

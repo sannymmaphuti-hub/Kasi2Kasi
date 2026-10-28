@@ -104,3 +104,4 @@ class DriverVehicleAdmin(admin.ModelAdmin):
     list_editable = ("is_active", "verified")
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
+

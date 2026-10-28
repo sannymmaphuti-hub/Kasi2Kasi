@@ -88,7 +88,7 @@ def reverse_geocode(latitude, longitude):
         result = {
             "address": address.strip(),
             "provider": "OpenStreetMap Nominatim",
-            "attribution": "┬⌐ OpenStreetMap contributors",
+            "attribution": "© OpenStreetMap contributors",
         }
         cache.set(cache_key, result, timeout=CACHE_TIMEOUT_SECONDS)
         return result

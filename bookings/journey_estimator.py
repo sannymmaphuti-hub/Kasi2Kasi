@@ -1,4 +1,4 @@
-"""Independent road-journey estimation using an OSRM-compatible service."""
+﻿"""Independent road-journey estimation using an OSRM-compatible service."""
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -254,3 +254,4 @@ def estimate_journey(
         provider="OSRM-compatible routing service",
         route_coordinates=route_coordinates,
     )
+

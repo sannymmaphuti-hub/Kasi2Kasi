@@ -1,4 +1,4 @@
-from datetime import timedelta
+﻿from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -146,3 +146,4 @@ class CustomerRideTrackingTests(TestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, 302)
+

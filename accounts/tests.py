@@ -1129,3 +1129,5 @@ class DriverRideCompletionTests(TestCase):
         response = self.client.get(reverse("assigned_driver_rides"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Complete ride")
+
+

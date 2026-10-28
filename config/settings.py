@@ -184,3 +184,4 @@ LOGOUT_REDIRECT_URL = "home"
 # User-uploaded media for local development.
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+

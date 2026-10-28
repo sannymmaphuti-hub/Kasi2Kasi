@@ -38,7 +38,7 @@ class ReverseGeocodeAPITests(TestCase):
     @patch("bookings.views.reverse_geocode", return_value={
         "address": "Example locality, Limpopo, South Africa",
         "provider": "OpenStreetMap Nominatim",
-        "attribution": "┬⌐ OpenStreetMap contributors",
+        "attribution": "© OpenStreetMap contributors",
     })
     def test_customer_receives_address(self, mock_geocode):
         self.client.force_login(self.customer)
@@ -98,7 +98,7 @@ class ReverseGeocodeAPITests(TestCase):
     @patch("bookings.views.reverse_geocode", return_value={
         "address": "Example place",
         "provider": "OpenStreetMap Nominatim",
-        "attribution": "┬⌐ OpenStreetMap contributors",
+        "attribution": "© OpenStreetMap contributors",
     })
     def test_geocoding_does_not_create_booking(self, mock_geocode):
         self.client.force_login(self.customer)

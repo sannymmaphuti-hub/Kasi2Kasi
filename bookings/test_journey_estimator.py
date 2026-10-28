@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from django.test import SimpleTestCase
 
@@ -225,3 +225,4 @@ class JourneyEstimatorTests(SimpleTestCase):
 
         with self.assertRaises(JourneyEstimationError):
             estimate_journey(**self.inputs, http_get=fake_get)
+

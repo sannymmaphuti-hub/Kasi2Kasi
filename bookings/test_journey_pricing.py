@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 from django.test import SimpleTestCase
 
 from bookings.journey_pricing import (
@@ -170,3 +170,4 @@ class JourneyPricingIntegrationTests(SimpleTestCase):
                 fare_inputs=fare_inputs,
                 sustainability_inputs=sustainability_inputs,
             )
+

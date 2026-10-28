@@ -1,4 +1,4 @@
-import os
+﻿import os
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
@@ -725,3 +725,4 @@ def driver_ride_navigation(request, ride_id):
             "thunderforest_api_key": os.environ.get("THUNDERFOREST_API_KEY", ""),
         },
     )
+

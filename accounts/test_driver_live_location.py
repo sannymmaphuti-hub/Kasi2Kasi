@@ -274,3 +274,4 @@ class DriverLiveLocationAPITests(TestCase):
         response = self.post_action("teleport")
 
         self.assertEqual(response.status_code, 400)
+
