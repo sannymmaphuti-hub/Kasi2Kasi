@@ -1,4 +1,4 @@
-﻿{% load static %}
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,6 +45,43 @@
                             <p><strong>Passengers:</strong> {{ ride.passenger_count }}</p>
                             <p><strong>Booking status:</strong> {{ ride.get_status_display }}</p>
 
+                            <p>
+                                <a class="button button-green"
+                                   href="{% url 'driver_ride_navigation' ride.id %}">
+                                    Navigate this ride
+                                </a>
+                            </p>
+
+                            {% if ride.status == "PENDING" %}
+                                <form method="post" action="{% url 'propose_assigned_ride_fare' ride.id %}">
+                                    {% csrf_token %}
+                                    <label for="proposed-fare-{{ ride.id }}">Propose fare (R)</label>
+                                    <input id="proposed-fare-{{ ride.id }}" type="number" name="proposed_fare" min="0.01" step="0.01" value="{{ ride.proposed_fare|default_if_none:'' }}" required>
+                                    <button class="button" type="submit">Submit fare</button>
+                                </form>
+
+                                <form method="post" action="{% url 'accept_assigned_ride' ride.id %}">
+                                    {% csrf_token %}
+                                    <button class="button button-green" type="submit">
+                                        Accept ride
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            {% if ride.status == "CONFIRMED" and ride.travel_datetime <= now %}
+                                <form method="post" action="{% url 'complete_assigned_ride' ride.id %}">
+                                    {% csrf_token %}
+                                    <button class="button button-green" type="submit">
+                                        Complete ride
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            {% if ride.estimated_fare != None %}
+                                <p><strong>Original estimate (indicative):</strong> R{{ ride.estimated_fare|floatformat:2 }}</p>
+                            {% else %}
+                                <p><strong>Original estimate:</strong> Not available</p>
+                            {% endif %}
                             {% if ride.proposed_fare %}
                                 <p><strong>Proposed fare:</strong> R{{ ride.proposed_fare|floatformat:2 }}</p>
                             {% else %}

@@ -1,0 +1,61 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>My vehicles | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">DRIVER ACCOUNT</span>
+            <h1>My vehicles</h1>
+            <p>Review your registered vehicle details and verification status.</p>
+        </div>
+
+        {% for message in messages %}
+            <div class="success-message">{{ message }}</div>
+        {% endfor %}
+
+        <section class="booking-form">
+            {% for vehicle in vehicles %}
+                <article>
+                    <h2>{{ vehicle.make }} {{ vehicle.model }}</h2>
+                    <p><strong>Registration:</strong> {{ vehicle.registration_number }}</p>
+                    <p><strong>Type:</strong> {{ vehicle.get_vehicle_type_display }}</p>
+                    <p><strong>Passenger capacity:</strong> {{ vehicle.passenger_capacity }}</p>
+                    <p><strong>Active:</strong> {{ vehicle.is_active|yesno:"Yes,No" }}</p>
+                    <p><strong>Verification:</strong>
+                        {% if vehicle.verified %}Verified{% else %}Awaiting verification{% endif %}
+                    </p>
+                    <p>
+                        <a class="button button-green"
+                           href="{% url 'driver_vehicle_edit' vehicle.id %}">
+                            Edit vehicle details
+                        </a>
+                    </p>
+                    <form method="post"
+                          action="{% url 'toggle_vehicle_active' vehicle.id %}">
+                        {% csrf_token %}
+                        {% if vehicle.is_active %}
+                            <button class="button button-outline" type="submit">
+                                Deactivate vehicle
+                            </button>
+                        {% else %}
+                            <button class="button button-green" type="submit">
+                                Activate vehicle
+                            </button>
+                        {% endif %}
+                    </form>
+                </article>
+            {% empty %}
+                <p>No vehicle is currently registered to your account.</p>
+                <p>Please contact Kasi2Kasi support for assistance.</p>
+            {% endfor %}
+            <p><a class="button button-outline" href="{% url 'account_dashboard' %}">Back to dashboard</a></p>
+        </section>
+    </main>
+</body>
+</html>

@@ -20,7 +20,7 @@
             <span class="brand-mark">K2K</span>
             <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
         </a>
-        <a class="back-link" href="{% url 'home' %}">← Back home</a>
+        <a class="back-link" href="{% url 'home' %}">&#8592; Back home</a>
     </header>
 
     <main class="form-page">
@@ -69,7 +69,7 @@
                         class="button button-green"
                         id="use-current-location"
                     >
-                        ◎ Use my current location
+                        &#9678; Use my current location
                     </button>
 
                     <button
@@ -108,6 +108,36 @@
                     aria-label="Interactive map for selecting pickup and destination"
                 ></div>
 
+                <section
+                    id="journey-route-preview"
+                    class="coordinate-summary"
+                    aria-label="Estimated road journey"
+                    aria-live="polite"
+                >
+                    <div>
+                        <strong>Estimated road distance</strong>
+                        <span id="journey-distance">Select both pins</span>
+                    </div>
+                    <div>
+                        <strong>Estimated driving time</strong>
+                        <span id="journey-duration">Select both pins</span>
+                    </div>
+                    <p id="journey-route-status">
+                        Route estimates are indicative and may be unavailable.
+                    </p>
+                </section>
+                <div id="fare-estimate-panel" class="coordinate-summary" aria-live="polite">
+                    <div>
+                        <strong>Indicative fare estimate</strong>
+                        <span id="fare-estimate-total">Select pickup and destination</span>
+                        <small id="fare-estimate-status" style="display:block;">This is an estimate, not a confirmed fare.</small>
+                    </div>
+                    <div>
+                        <strong>Fare breakdown</strong>
+                        <span id="fare-estimate-breakdown">Not available yet</span>
+                    </div>
+                    <p>Any fare proposed by the driver and the final fare you agree to will be shown separately.</p>
+                </div>
                 <p class="map-help">
                     No street name? That's okay. Choose a nearby landmark
                     or place the pin as close as possible to your location.
@@ -118,12 +148,14 @@
                     <div>
                         <strong>Pickup pin</strong>
                         <span id="pickup-coordinate-summary">Not selected</span>
+                        <small id="pickup-address-summary" aria-live="polite" style="display:block;"></small>
                     </div>
                     <div>
                         <strong>Destination pin</strong>
                         <span id="destination-coordinate-summary">
                             Not selected
                         </span>
+                        <small id="destination-address-summary" aria-live="polite" style="display:block;"></small>
                     </div>
                 </div>
             </section>
@@ -197,7 +229,7 @@
             </div>
 
             <button class="button button-green submit-button" type="submit">
-                Send ride request <span aria-hidden="true">→</span>
+                Send ride request
             </button>
 
             <p class="form-disclaimer">
@@ -242,6 +274,7 @@
                     longitude: document.getElementById("id_pickup_longitude"),
                     description: document.getElementById("id_pickup_location"),
                     summary: document.getElementById("pickup-coordinate-summary"),
+                    addressSummary: document.getElementById("pickup-address-summary"),
                     label: "Pickup"
                 },
                 destination: {
@@ -249,6 +282,7 @@
                     longitude: document.getElementById("id_destination_longitude"),
                     description: document.getElementById("id_destination"),
                     summary: document.getElementById("destination-coordinate-summary"),
+                    addressSummary: document.getElementById("destination-address-summary"),
                     label: "Destination"
                 }
             };
@@ -257,7 +291,7 @@
             const map = L.map("ride-map").setView([-23.75, 29.95], 10);
 
             L.tileLayer(
-                "https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {
                     maxZoom: 19,
                     attribution:
@@ -271,6 +305,260 @@
             };
 
             let activeMode = "pickup";
+
+            const journeyDistanceElement =
+                document.getElementById("journey-distance");
+            const journeyDurationElement =
+                document.getElementById("journey-duration");
+            const journeyRouteStatusElement =
+                document.getElementById("journey-route-status");
+
+            let routeLayer = null;
+            let routeTimer = null;
+            let routeRequestController = null;
+
+            function clearRouteLayer() {
+                if (routeLayer) {
+                    map.removeLayer(routeLayer);
+                    routeLayer = null;
+                }
+            }
+
+            function scheduleRoutePreview() {
+                if (routeTimer !== null) {
+                    window.clearTimeout(routeTimer);
+                }
+
+                if (routeRequestController !== null) {
+                    routeRequestController.abort();
+                    routeRequestController = null;
+                }
+
+                routeTimer = window.setTimeout(() => {
+                    routeTimer = null;
+                    updateRoutePreview();
+                }, 400);
+            }
+
+            async function updateRoutePreview() {
+                const pickup = coordinatesFromFields(fields.pickup);
+                const destination =
+                    coordinatesFromFields(fields.destination);
+
+                if (routeRequestController !== null) {
+                    routeRequestController.abort();
+                    routeRequestController = null;
+                }
+
+                if (!pickup || !destination) {
+                    clearRouteLayer();
+                    journeyDistanceElement.textContent = "Select both pins";
+                    journeyDurationElement.textContent = "Select both pins";
+                    journeyRouteStatusElement.textContent =
+                        "Choose pickup and destination pins to preview the road route.";
+                    return;
+                }
+
+                if (
+                    pickup[0] === destination[0] &&
+                    pickup[1] === destination[1]
+                ) {
+                    clearRouteLayer();
+                    journeyDistanceElement.textContent = "Unavailable";
+                    journeyDurationElement.textContent = "Unavailable";
+                    journeyRouteStatusElement.textContent =
+                        "Choose two different locations.";
+                    return;
+                }
+
+                const controller = new AbortController();
+                routeRequestController = controller;
+
+                journeyDistanceElement.textContent = "Calculating...";
+                journeyDurationElement.textContent = "Calculating...";
+                journeyRouteStatusElement.textContent =
+                    "Calculating an indicative road journey...";
+
+                const csrfToken = document.querySelector(
+                    '#booking-form input[name="csrfmiddlewaretoken"]'
+                )?.value;
+
+                if (!csrfToken) {
+                    clearRouteLayer();
+                    journeyDistanceElement.textContent = "Unavailable";
+                    journeyDurationElement.textContent = "Unavailable";
+                    journeyRouteStatusElement.textContent =
+                        "Security token unavailable. Refresh the page and try again.";
+                    routeRequestController = null;
+                    return;
+                }
+
+                const timeoutId = window.setTimeout(
+                    () => controller.abort(),
+                    12000
+                );
+
+                try {
+                    const response = await fetch(
+                        "{% url 'journey_estimate_api' %}",
+                        {
+                            method: "POST",
+                            headers: {
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": csrfToken
+                            },
+                            credentials: "same-origin",
+                            body: JSON.stringify({
+                                pickup_latitude: pickup[0],
+                                pickup_longitude: pickup[1],
+                                destination_latitude: destination[0],
+                                destination_longitude: destination[1]
+                            }),
+                            signal: controller.signal
+                        }
+                    );
+
+                    if (routeRequestController !== controller) {
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(
+                            response.status === 503
+                                ? "Journey estimation is temporarily unavailable."
+                                : "The journey estimate could not be requested."
+                        );
+                    }
+
+                    const payload = await response.json();
+
+                    if (routeRequestController !== controller) {
+                        return;
+                    }
+
+                    const distanceKm = Number(payload.distance_km);
+                    const durationMinutes = Number(payload.duration_minutes);
+
+                    if (
+                        payload.indicative !== true ||
+                        !Number.isFinite(distanceKm) ||
+                        distanceKm <= 0 ||
+                        !Number.isFinite(durationMinutes) ||
+                        durationMinutes <= 0
+                    ) {
+                        throw new Error("The journey estimate was invalid.");
+                    }
+
+                    clearRouteLayer();
+
+                    let routeLineAvailable = false;
+                    const points = payload.route_coordinates;
+
+                    if (Array.isArray(points) && points.length >= 2) {
+                        const validPoints = points.every((point) =>
+                            Array.isArray(point) &&
+                            point.length >= 2 &&
+                            Number.isFinite(Number(point[0])) &&
+                            Number.isFinite(Number(point[1])) &&
+                            Number(point[0]) >= -180 &&
+                            Number(point[0]) <= 180 &&
+                            Number(point[1]) >= -90 &&
+                            Number(point[1]) <= 90
+                        );
+
+                        if (validPoints) {
+                            const latLngs = points.map((point) => [
+                                Number(point[1]),
+                                Number(point[0])
+                            ]);
+
+                            routeLayer = L.polyline(latLngs, {
+                                color: "#1769aa",
+                                weight: 5,
+                                opacity: 0.85
+                            }).addTo(map);
+
+                            routeLineAvailable = true;
+                        }
+                    }
+
+                    journeyDistanceElement.textContent =
+                        distanceKm.toFixed(1) + " km";
+
+                    journeyDurationElement.textContent =
+                        Math.round(durationMinutes) + " min";
+
+                    const fare = payload.fare;
+                    const fareTotalElement = document.getElementById("fare-estimate-total");
+                    const fareStatusElement = document.getElementById("fare-estimate-status");
+                    const fareBreakdownElement = document.getElementById("fare-estimate-breakdown");
+
+                    if (fare && fare.available === true && Number.isFinite(Number(fare.total))) {
+                        const money = (value) => new Intl.NumberFormat("en-ZA", {
+                            style: "currency",
+                            currency: fare.currency || "ZAR"
+                        }).format(Number(value));
+
+                        fareTotalElement.textContent = money(fare.total);
+
+                        const parts = [
+                            ["Base fare", fare.base_fare],
+                            ["Distance", fare.distance_charge],
+                            ["Time", fare.time_charge],
+                            ["After-hours adjustment", fare.after_hours_charge],
+                            ["Other adjustments", fare.other_adjustments],
+                            ["Discount", fare.discount]
+                        ];
+
+                        fareBreakdownElement.textContent = parts
+                            .filter((part) => part[1] !== undefined && part[1] !== null)
+                            .map((part) => part[0] + ": " + money(part[1]))
+                            .join(" | ");
+
+                        fareStatusElement.textContent =
+                            "Indicative estimate only. This is not the driver's proposed fare or an agreed fare.";
+                    } else {
+                        fareTotalElement.textContent = "Not available";
+                        fareBreakdownElement.textContent = "No itemised fare available.";
+                        fareStatusElement.textContent =
+                            fare && fare.reason === "pricing_not_configured"
+                                ? "Fare rates have not been configured yet. No amount has been invented."
+                                : "A fare estimate is currently unavailable. Distance and driving time are shown separately.";
+                    }
+
+                    journeyRouteStatusElement.textContent =
+                        "Indicative estimate only. Actual route and travel time may vary." +
+                        (
+                            routeLineAvailable
+                                ? ""
+                                : " The route line is temporarily unavailable."
+                        );
+                } catch (error) {
+                    if (routeRequestController !== controller) {
+                        return;
+                    }
+
+                    clearRouteLayer();
+                    journeyDistanceElement.textContent = "Unavailable";
+                    journeyDurationElement.textContent = "Unavailable";
+
+                    if (error.name === "AbortError") {
+                        journeyRouteStatusElement.textContent =
+                            "The journey estimate timed out or was cancelled. Try again.";
+                    } else {
+                        journeyRouteStatusElement.textContent =
+                            error.message ||
+                            "Unable to estimate this journey. Please try again.";
+                    }
+                } finally {
+                    window.clearTimeout(timeoutId);
+
+                    if (routeRequestController === controller) {
+                        routeRequestController = null;
+                    }
+                }
+            }
 
             function coordinatesFromFields(place) {
                 const latitude = place.latitude.value.trim();
@@ -297,6 +585,78 @@
                 return [lat, lng];
             }
 
+            const geocodeRequestIds = { pickup: 0, destination: 0 };
+            const autoGeneratedDescriptions = { pickup: "", destination: "" };
+
+            async function updateAddressSummary(key, latlng) {
+                const place = fields[key];
+                const requestId = ++geocodeRequestIds[key];
+                place.addressSummary.textContent = "Looking up addressâ€¦";
+
+                const csrfToken = document.querySelector(
+                    '#booking-form input[name="csrfmiddlewaretoken"]'
+                )?.value;
+
+                if (!csrfToken) {
+                    place.addressSummary.textContent = "Readable address unavailable.";
+                    return;
+                }
+
+                try {
+                    const response = await fetch(
+                        "{% url 'reverse_geocode_api' %}",
+                        {
+                            method: "POST",
+                            credentials: "same-origin",
+                            headers: {
+                                "Accept": "application/json",
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": csrfToken
+                            },
+                            body: JSON.stringify({
+                                latitude: Number(latlng.lat.toFixed(6)),
+                                longitude: Number(latlng.lng.toFixed(6))
+                            })
+                        }
+                    );
+
+                    const result = await response.json();
+
+                    if (requestId !== geocodeRequestIds[key]) {
+                        return;
+                    }
+
+                    const address =
+                        response.ok && typeof result.address === "string"
+                            ? result.address.trim()
+                            : "";
+
+                    if (address) {
+                        place.addressSummary.textContent = address;
+
+                        const currentDescription = place.description.value.trim();
+                        const isCoordinateText =
+                            /^[-+]?\d+(?:\.\d+)?\s*,\s*[-+]?\d+(?:\.\d+)?$/.test(currentDescription);
+
+                        if (
+                            !currentDescription ||
+                            isCoordinateText ||
+                            currentDescription === autoGeneratedDescriptions[key]
+                        ) {
+                            place.description.value = address;
+                            autoGeneratedDescriptions[key] = address;
+                        }
+                    } else {
+                        place.addressSummary.textContent = "Readable address unavailable.";
+                    }
+                } catch (error) {
+                    if (requestId === geocodeRequestIds[key]) {
+                        place.addressSummary.textContent =
+                            "Readable address unavailable.";
+                    }
+                }
+            }
+
             function updateSummary(key, latlng) {
                 const place = fields[key];
 
@@ -307,9 +667,11 @@
                     latlng.lat.toFixed(6) + ", " +
                     latlng.lng.toFixed(6);
 
+                updateAddressSummary(key, latlng);
+
                 if (!place.description.value.trim()) {
                     place.description.placeholder =
-                        "Map pin selected — add a landmark or description";
+                        "Map pin selected Ã¢â‚¬â€ add a landmark or description";
                 }
             }
 
@@ -327,6 +689,7 @@
                     markers[key].on("dragend", () => {
                         const newPosition = markers[key].getLatLng();
                         updateSummary(key, newPosition);
+                        scheduleRoutePreview();
                         statusElement.textContent =
                             place.label + " pin updated.";
                     });
@@ -336,6 +699,7 @@
 
                 markers[key].setPopupContent(place.label);
                 updateSummary(key, latlng);
+                scheduleRoutePreview();
             }
 
             function setActiveMode(mode) {
@@ -447,5 +811,3 @@
     </script>
 </body>
 </html>
-
-

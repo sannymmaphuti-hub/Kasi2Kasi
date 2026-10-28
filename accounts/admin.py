@@ -1,6 +1,6 @@
-﻿from django.contrib import admin, messages
+from django.contrib import admin, messages
 
-from .models import UserProfile
+from .models import DriverVehicle, UserProfile
 
 
 @admin.register(UserProfile)
@@ -10,12 +10,14 @@ class UserProfileAdmin(admin.ModelAdmin):
         "role",
         "driver_status",
         "created_at",
+            "is_available",
     )
 
     list_filter = (
         "role",
         "driver_status",
         "created_at",
+            "is_available",
     )
 
     search_fields = (
@@ -71,5 +73,34 @@ class UserProfileAdmin(admin.ModelAdmin):
     @staticmethod
     def _set_driver_status(queryset, status):
         # Never change customer profiles through driver actions.
+        # Every admin status action leaves drivers offline. Drivers
+        # must explicitly go online after their account is approved.
         drivers = queryset.filter(role=UserProfile.Role.DRIVER)
-        return drivers.update(driver_status=status)
+        return drivers.update(
+            driver_status=status,
+            is_available=False,
+        )
+
+@admin.register(DriverVehicle)
+class DriverVehicleAdmin(admin.ModelAdmin):
+    list_display = (
+        "registration_number",
+        "driver",
+        "vehicle_type",
+        "make",
+        "model",
+        "is_active",
+        "verified",
+        "created_at",
+    )
+    list_filter = ("vehicle_type", "is_active", "verified", "created_at")
+    search_fields = (
+        "registration_number",
+        "make",
+        "model",
+        "driver__username",
+        "driver__email",
+    )
+    list_editable = ("is_active", "verified")
+    readonly_fields = ("created_at",)
+    ordering = ("-created_at",)

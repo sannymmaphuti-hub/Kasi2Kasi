@@ -24,6 +24,7 @@ class TransportRequestAdminForm(forms.ModelForm):
         approved_drivers = User.objects.filter(
             profile__role=UserProfile.Role.DRIVER,
             profile__driver_status=UserProfile.DriverStatus.APPROVED,
+            profile__is_available=True,
         )
 
         # Keep an existing assignment selectable even if that driver's
@@ -70,6 +71,16 @@ class TransportRequestAdminForm(forms.ModelForm):
                             "Only approved driver accounts may be assigned.",
                         )
 
+                if (
+                    profile.role == UserProfile.Role.DRIVER
+                    and profile.driver_status == UserProfile.DriverStatus.APPROVED
+                    and not profile.is_available
+                    and driver.pk != self.instance.assigned_driver_id
+                ):
+                    self.add_error(
+                        "assigned_driver",
+                        "Only online, approved drivers may receive new assignments.",
+                    )
         for field_name, fare in (
             ("proposed_fare", proposed_fare),
             ("agreed_fare", agreed_fare),
@@ -86,6 +97,82 @@ class TransportRequestAdminForm(forms.ModelForm):
                 "Enter a proposed fare before recording an agreed fare.",
             )
 
+        status = cleaned_data.get("status")
+        travel_datetime = cleaned_data.get("travel_datetime")
+
+        # A driver cannot be allocated two active rides with the same
+        # scheduled departure time. Journey durations are not modelled yet,
+        # so this deliberately checks exact departure-time collisions only.
+        if (
+            driver is not None
+            and travel_datetime is not None
+            and status not in (
+                TransportRequest.Status.COMPLETED,
+                TransportRequest.Status.CANCELLED,
+            )
+        ):
+            conflicting_rides = TransportRequest.objects.filter(
+                assigned_driver=driver,
+                travel_datetime=travel_datetime,
+                status__in=(
+                    TransportRequest.Status.PENDING,
+                    TransportRequest.Status.ACCEPTED,
+                    TransportRequest.Status.CONFIRMED,
+                ),
+            )
+
+            if self.instance and self.instance.pk:
+                conflicting_rides = conflicting_rides.exclude(
+                    pk=self.instance.pk
+                )
+
+            if conflicting_rides.exists():
+                self.add_error(
+                    "assigned_driver",
+                    (
+                        "This driver already has an active ride scheduled "
+                        "for the same departure time."
+                    ),
+                )
+
+        if status == TransportRequest.Status.PENDING and agreed_fare is not None:
+            self.add_error(
+                "agreed_fare",
+                "A pending ride cannot have an agreed fare.",
+            )
+
+        if status in (
+            TransportRequest.Status.ACCEPTED,
+            TransportRequest.Status.CONFIRMED,
+            TransportRequest.Status.COMPLETED,
+        ):
+            if driver is None:
+                self.add_error(
+                    "assigned_driver",
+                    "This ride status requires an assigned driver.",
+                )
+
+            if proposed_fare is None or proposed_fare <= 0:
+                self.add_error(
+                    "proposed_fare",
+                    "This ride status requires a positive proposed fare.",
+                )
+
+        if status in (
+            TransportRequest.Status.CONFIRMED,
+            TransportRequest.Status.COMPLETED,
+        ):
+            if agreed_fare is None or agreed_fare <= 0:
+                self.add_error(
+                    "agreed_fare",
+                    "Confirmed and completed rides require a positive agreed fare.",
+                )
+
+        if status == TransportRequest.Status.ACCEPTED and agreed_fare is not None:
+            self.add_error(
+                "agreed_fare",
+                "An accepted ride must await customer fare confirmation.",
+            )
         return cleaned_data
 
 
@@ -127,7 +214,7 @@ class TransportRequestAdmin(admin.ModelAdmin):
         "destination",
     )
 
-    list_editable = ("status",)
+    # Status changes must use the validated booking edit form.
     list_per_page = 25
     date_hierarchy = "created_at"
     ordering = ("-created_at",)

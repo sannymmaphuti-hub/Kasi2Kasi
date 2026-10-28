@@ -21,6 +21,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+# FairFare: leave unset until Kasi2Kasi's fare rates are formally decided.
+# When all three values are configured, the journey API can calculate an estimate.
+KASI2KASI_BASE_FARE = os.environ.get("KASI2KASI_BASE_FARE")
+KASI2KASI_RATE_PER_KM = os.environ.get("KASI2KASI_RATE_PER_KM")
+KASI2KASI_RATE_PER_MINUTE = os.environ.get("KASI2KASI_RATE_PER_MINUTE")
 if not SECRET_KEY:
     raise RuntimeError("DJANGO_SECRET_KEY environment variable must be set.")
 
@@ -30,7 +35,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS",
 # Browser security protections.
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
-SECURE_REFERRER_POLICY = "same-origin"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # HTTPS protections: enable through environment variables in production.
 SECURE_SSL_REDIRECT = os.environ.get(
     "DJANGO_SECURE_SSL_REDIRECT", "False"

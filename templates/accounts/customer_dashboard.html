@@ -34,12 +34,233 @@
             <h2>Plan your next journey</h2>
             <p>Submit a ride request and we'll contact you to discuss availability and pricing.</p>
             <a class="button button-green" href="{% url 'my_rides' %}">My rides</a>
-            <a class="button button-green" href="{% url 'request_ride' %}">Request a ride →</a>
+            <a class="button button-green" href="{% url 'request_ride' %}">Request a ride</a>
             <p class="form-disclaimer">
                 View the status and details of ride requests submitted through your account.
             </p>
         </section>
-    </main>
+
+        <section class="customer-ride-overview" aria-labelledby="ride-overview-title">
+            <div class="customer-overview-heading">
+                <div>
+                    <span class="eyebrow">YOUR JOURNEYS</span>
+                    <h2 id="ride-overview-title">Your ride overview</h2>
+                    <p>Track your requests and check the latest fare information.</p>
+                </div>
+                <a class="button button-green" href="{% url 'my_rides' %}">View all rides</a>
+            </div>
+
+            <div class="customer-ride-stats">
+                <article class="customer-stat-card">
+                    <span>Total requests</span>
+                    <strong>{{ customer_dashboard_counts.total }}</strong>
+                </article>
+                <article class="customer-stat-card">
+                    <span>Pending</span>
+                    <strong>{{ customer_dashboard_counts.pending }}</strong>
+                </article>
+                <article class="customer-stat-card">
+                    <span>Accepted</span>
+                    <strong>{{ customer_dashboard_counts.accepted }}</strong>
+                </article>
+                <article class="customer-stat-card">
+                    <span>Confirmed</span>
+                    <strong>{{ customer_dashboard_counts.confirmed }}</strong>
+                </article>
+                <article class="customer-stat-card">
+                    <span>Completed</span>
+                    <strong>{{ customer_dashboard_counts.completed }}</strong>
+                </article>
+                <article class="customer-stat-card">
+                    <span>Cancelled</span>
+                    <strong>{{ customer_dashboard_counts.cancelled }}</strong>
+                </article>
+            </div>
+
+            <div class="customer-recent-rides">
+                <h3>Recent ride requests</h3>
+
+                {% for ride in customer_dashboard_recent_rides %}
+                    <article class="customer-ride-card">
+                        <div class="customer-ride-route">
+                            <h4>{{ ride.pickup_location }} &rarr; {{ ride.destination }}</h4>
+                            <p>{{ ride.travel_datetime|date:"D, d M Y, H:i" }}</p>
+                            <p>{{ ride.passenger_count }} passenger{{ ride.passenger_count|pluralize }}</p>
+                        </div>
+
+                        <div class="customer-ride-details">
+                            <span class="customer-status customer-status-{{ ride.status|lower }}">
+                                {{ ride.get_status_display }}
+                            </span>
+
+                            <p class="customer-ride-fare">
+
+                                {% if ride.estimated_fare != None %}
+                                    Original estimate (indicative): R{{ ride.estimated_fare|floatformat:2 }}
+                                {% else %}
+                                    Original estimate: Not available
+                                {% endif %}
+                                <br>
+                                {% if ride.agreed_fare != None %}
+                                    Agreed fare: R{{ ride.agreed_fare|floatformat:2 }}
+                                {% elif ride.proposed_fare != None %}
+                                    Proposed fare: R{{ ride.proposed_fare|floatformat:2 }}
+                                {% else %}
+                                    Fare not available yet
+                                {% endif %}
+                            </p>
+                        </div>
+                    </article>
+                {% empty %}
+                    <div class="customer-no-rides">
+                        <h4>No ride requests yet</h4>
+                        <p>Your ride requests will appear here after you submit one.</p>
+                        <a class="button button-green" href="{% url 'request_ride' %}">
+                            Request your first ride
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <style>
+            .customer-ride-overview {
+                width: min(100% - 32px, 1100px);
+                margin: 32px auto;
+                padding: 28px;
+                box-sizing: border-box;
+                border: 1px solid #e2e8e5;
+                border-radius: 18px;
+                background: #ffffff;
+                box-shadow: 0 8px 28px rgba(15, 40, 30, 0.06);
+            }
+
+            .customer-overview-heading {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 20px;
+                flex-wrap: wrap;
+                margin-bottom: 24px;
+            }
+
+            .customer-overview-heading h2 {
+                margin: 8px 0;
+            }
+
+            .customer-overview-heading p,
+            .customer-ride-route p {
+                color: #64746b;
+                margin: 6px 0;
+            }
+
+            .customer-ride-stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+                gap: 12px;
+                margin-bottom: 30px;
+            }
+
+            .customer-stat-card {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding: 18px;
+                border: 1px solid #e3ebe6;
+                border-radius: 12px;
+                background: #f7faf8;
+            }
+
+            .customer-stat-card span {
+                color: #52645a;
+                font-size: 0.9rem;
+            }
+
+            .customer-stat-card strong {
+                font-size: 1.8rem;
+                color: #176b45;
+            }
+
+            .customer-recent-rides h3 {
+                margin-bottom: 16px;
+            }
+
+            .customer-ride-card {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 20px;
+                flex-wrap: wrap;
+                padding: 18px 0;
+                border-top: 1px solid #e7ece9;
+            }
+
+            .customer-ride-route h4 {
+                margin: 0 0 8px;
+                overflow-wrap: anywhere;
+            }
+
+            .customer-ride-details {
+                text-align: right;
+            }
+
+            .customer-status {
+                display: inline-block;
+                padding: 6px 11px;
+                border-radius: 999px;
+                background: #edf2ef;
+                color: #33483b;
+                font-size: 0.85rem;
+                font-weight: 700;
+            }
+
+            .customer-status-pending {
+                background: #fff3d7;
+                color: #805500;
+            }
+
+            .customer-status-accepted,
+            .customer-status-confirmed {
+                background: #e2f4e9;
+                color: #176b45;
+            }
+
+            .customer-status-completed {
+                background: #e7edff;
+                color: #294a9b;
+            }
+
+            .customer-status-cancelled {
+                background: #fce8e8;
+                color: #9c2f2f;
+            }
+
+            .customer-ride-fare {
+                margin: 10px 0 0;
+                font-weight: 600;
+            }
+
+            .customer-no-rides {
+                padding: 24px 0 8px;
+                border-top: 1px solid #e7ece9;
+            }
+
+            @media (max-width: 600px) {
+                .customer-ride-overview {
+                    padding: 18px;
+                }
+
+                .customer-ride-details {
+                    text-align: left;
+                }
+
+                .customer-ride-card {
+                    align-items: flex-start;
+                }
+            }
+        </style>
+
+</main>
 
 <section class="dashboard-profile-card">
     <div class="dashboard-profile-avatar">
@@ -68,12 +289,9 @@
             {% else %}
                 Add your profile picture
             {% endif %}
-            <span aria-hidden="true">→</span>
         </a>
     </div>
 </section>
 
 </body>
 </html>
-
-

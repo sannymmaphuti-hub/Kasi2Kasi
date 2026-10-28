@@ -1,0 +1,208 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Track your driver | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+    <style>
+        .tracking-shell {
+            width: min(100% - 32px, 1050px);
+            margin: 32px auto;
+        }
+        .tracking-card {
+            padding: 24px;
+            border: 1px solid #e2e8e5;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 8px 28px rgba(15, 40, 30, 0.06);
+        }
+        #customer-live-map {
+            height: min(62vh, 560px);
+            min-height: 320px;
+            margin-top: 18px;
+            border-radius: 14px;
+            background: #eef3ef;
+            z-index: 0;
+        }
+        .tracking-status {
+            padding: 12px 14px;
+            border-radius: 10px;
+            background: #f2f6f3;
+            color: #33483b;
+        }
+        .tracking-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .tracking-muted {
+            color: #64746b;
+            font-size: .92rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-mark">K2K</span>
+            <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+        </a>
+        <a class="button button-outline" href="{% url 'my_rides' %}">My rides</a>
+    </header>
+
+    <main class="tracking-shell">
+        <section class="tracking-card">
+            <span class="eyebrow">LIVE RIDE TRACKING</span>
+            <h1>Your driver</h1>
+            <h2>{{ ride.pickup_location }} &rarr; {{ ride.destination }}</h2>
+            <p>Travel date: {{ ride.travel_datetime|date:"D, d M Y, H:i" }}</p>
+
+            <p id="tracking-status" class="tracking-status" role="status" aria-live="polite">
+                Connecting to live tracking…
+            </p>
+
+            <div id="customer-live-map" aria-label="Map showing the driver's latest shared location"></div>
+
+            <div class="tracking-actions">
+                <a
+                    class="button button-green"
+                    href="https://www.google.com/maps/dir/?api=1{% if ride.pickup_latitude != None and ride.pickup_longitude != None and ride.destination_latitude != None and ride.destination_longitude != None %}&origin={{ ride.pickup_latitude }},{{ ride.pickup_longitude }}&destination={{ ride.destination_latitude }},{{ ride.destination_longitude }}{% endif %}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >Open route in Google Maps</a>
+                <a class="button button-outline" href="{% url 'my_rides' %}">Back to my rides</a>
+            </div>
+
+            <p class="tracking-muted">
+                The map updates when your driver shares a fresh GPS position.
+                If sharing is stopped or the GPS signal is weak, the last position will not be presented as live.
+            </p>
+        </section>
+    </main>
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script>
+    (() => {
+        const apiUrl = "{{ location_api_url|escapejs }}";
+        const statusElement = document.getElementById("tracking-status");
+
+        if (!window.L) {
+            statusElement.textContent =
+                "The map library could not load. Please check your internet connection and refresh.";
+            return;
+        }
+
+        const map = L.map("customer-live-map").setView([-26.2041, 28.0473], 11);
+
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        let driverMarker = null;
+        let lastPosition = null;
+        let stopped = false;
+        let requestInProgress = false;
+
+        function showStatus(message) {
+            statusElement.textContent = message;
+        }
+
+        async function refreshLocation() {
+            if (stopped || requestInProgress) return;
+            requestInProgress = true;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "GET",
+                    credentials: "same-origin",
+                    headers: {"Accept": "application/json"},
+                    cache: "no-store"
+                });
+
+                if (response.status === 401 || response.redirected) {
+                    showStatus("Your session may have expired. Sign in again to continue tracking.");
+                    return;
+                }
+
+                if (response.status === 404) {
+                    showStatus("This ride is not available to your account.");
+                    stopped = true;
+                    return;
+                }
+
+                if (!response.ok) {
+                    showStatus("Unable to retrieve the driver's location. Retrying shortly.");
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (!data.available) {
+                    showStatus(data.message || "The driver's location is not currently available.");
+                    return;
+                }
+
+                const latitude = Number(data.latitude);
+                const longitude = Number(data.longitude);
+
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                    showStatus("The location received was invalid. Waiting for the next update.");
+                    return;
+                }
+
+                const position = [latitude, longitude];
+
+                if (!driverMarker) {
+                    driverMarker = L.marker(position).addTo(map);
+                    driverMarker.bindPopup("Driver's latest shared location");
+                    map.setView(position, 15);
+                } else {
+                    driverMarker.setLatLng(position);
+                    if (
+                        !lastPosition ||
+                        lastPosition[0] !== latitude ||
+                        lastPosition[1] !== longitude
+                    ) {
+                        map.panTo(position, {animate: true, duration: 0.4});
+                    }
+                }
+
+                lastPosition = position;
+                const updateTime = new Date(data.updated_at);
+                const formattedTime = Number.isNaN(updateTime.getTime())
+                    ? "just now"
+                    : updateTime.toLocaleTimeString();
+
+                showStatus("Driver location is being shared. Last GPS update: " + formattedTime + ".");
+            } catch (error) {
+                showStatus("Connection problem. Checking again shortly.");
+            } finally {
+                requestInProgress = false;
+            }
+        }
+
+        refreshLocation();
+        const timer = window.setInterval(refreshLocation, 5000);
+
+        window.addEventListener("pagehide", () => {
+            stopped = true;
+            window.clearInterval(timer);
+        });
+    })();
+    </script>
+</body>
+</html>

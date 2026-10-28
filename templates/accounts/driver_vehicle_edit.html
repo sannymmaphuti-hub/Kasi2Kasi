@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Edit vehicle | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <main class="form-page">
+        <div class="form-intro">
+            <span class="eyebrow">DRIVER ACCOUNT</span>
+            <h1>Edit vehicle details</h1>
+            <p>Changes to vehicle details require another verification review.</p>
+        </div>
+
+        <section class="booking-form">
+            <form method="post">
+                {% csrf_token %}
+                {% for field in form %}
+                    <div class="form-field">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                        {% for error in field.errors %}<p class="error-message">{{ error }}</p>{% endfor %}
+                    </div>
+                {% endfor %}
+                {% if form.non_field_errors %}
+                    {% for error in form.non_field_errors %}<p class="error-message">{{ error }}</p>{% endfor %}
+                {% endif %}
+                <button class="button button-green" type="submit">Save vehicle details</button>
+                <a class="button button-outline" href="{% url 'driver_vehicle_management' %}">Cancel</a>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

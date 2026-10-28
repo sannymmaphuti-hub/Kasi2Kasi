@@ -57,7 +57,61 @@ class RegistrationForm(UserCreationForm):
         return user
 
 
-from .models import UserProfile
+from .models import DriverVehicle, UserProfile
+
+
+class DriverRegistrationForm(RegistrationForm):
+    """Account registration plus the driver's initial vehicle details."""
+
+    vehicle_type = forms.ChoiceField(
+        choices=DriverVehicle.VehicleType.choices,
+        label="Vehicle type",
+    )
+    make = forms.CharField(max_length=60, label="Vehicle make")
+    model = forms.CharField(max_length=60, label="Vehicle model")
+    year = forms.IntegerField(
+        required=False,
+        min_value=1900,
+        max_value=2100,
+        label="Vehicle year",
+    )
+    registration_number = forms.CharField(
+        max_length=20,
+        label="Vehicle registration number",
+        help_text="Enter the vehicle's official registration number.",
+    )
+    passenger_capacity = forms.IntegerField(
+        min_value=1,
+        max_value=100,
+        initial=4,
+        label="Passenger capacity",
+    )
+
+    def clean_registration_number(self):
+        registration_number = " ".join(
+            self.cleaned_data["registration_number"].strip().upper().split()
+        )
+
+        if not registration_number:
+            raise forms.ValidationError(
+                "Enter the vehicle registration number."
+            )
+
+        if DriverVehicle.objects.filter(
+            registration_number__iexact=registration_number
+        ).exists():
+            raise forms.ValidationError(
+                "This vehicle registration number is already registered."
+            )
+
+        return registration_number
+
+    def clean_make(self):
+        return self.cleaned_data["make"].strip()
+
+    def clean_model(self):
+        return self.cleaned_data["model"].strip()
+
 
 
 class ProfilePictureForm(forms.ModelForm):
@@ -133,3 +187,52 @@ class ProfilePictureForm(forms.ModelForm):
             image.seek(0)
 
         return image
+
+class DriverVehicleUpdateForm(forms.ModelForm):
+    """Allow drivers to update their own registered vehicle details."""
+
+    class Meta:
+        model = DriverVehicle
+        fields = (
+            "vehicle_type",
+            "make",
+            "model",
+            "year",
+            "registration_number",
+            "passenger_capacity",
+        )
+        labels = {
+            "vehicle_type": "Vehicle type",
+            "make": "Vehicle make",
+            "model": "Vehicle model",
+            "year": "Vehicle year",
+            "registration_number": "Vehicle registration number",
+            "passenger_capacity": "Passenger capacity",
+        }
+
+    def clean_registration_number(self):
+        registration_number = " ".join(
+            self.cleaned_data["registration_number"].strip().upper().split()
+        )
+
+        if not registration_number:
+            raise forms.ValidationError(
+                "Enter the vehicle registration number."
+            )
+
+        duplicates = DriverVehicle.objects.filter(
+            registration_number__iexact=registration_number
+        ).exclude(pk=self.instance.pk)
+
+        if duplicates.exists():
+            raise forms.ValidationError(
+                "This vehicle registration number is already registered."
+            )
+
+        return registration_number
+
+    def clean_make(self):
+        return self.cleaned_data["make"].strip()
+
+    def clean_model(self):
+        return self.cleaned_data["model"].strip()

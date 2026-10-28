@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kasi2Kasi | Dispatch Overview</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f3f5f8;
+            color: #172033;
+        }
+        body { margin: 0; }
+        header {
+            background: #172033;
+            color: white;
+            padding: 24px max(20px, calc((100% - 1200px) / 2));
+        }
+        header h1 { margin: 0 0 8px; }
+        header p { margin: 0; color: #d5dbea; }
+        main { max-width: 1200px; margin: 28px auto; padding: 0 20px; }
+        .actions, .filters {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            align-items: end; margin-bottom: 22px;
+        }
+        .button, button {
+            display: inline-block; padding: 10px 14px;
+            border: 0; border-radius: 6px; background: #176b4d;
+            color: white; text-decoration: none; cursor: pointer;
+            font-size: 14px;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px; margin-bottom: 28px;
+        }
+        .card, .panel {
+            background: white; border: 1px solid #e0e5ed;
+            border-radius: 9px; padding: 18px;
+        }
+        .card span { display: block; color: #5e687b; font-size: 14px; }
+        .card strong { display: block; font-size: 28px; margin-top: 8px; }
+        h2 { margin-top: 0; }
+        label { display: block; font-size: 13px; margin-bottom: 6px; }
+        select {
+            min-width: 180px; padding: 10px; border: 1px solid #ccd3df;
+            border-radius: 6px; background: white;
+        }
+        .table-wrap { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; background: white; }
+        th, td {
+            text-align: left; padding: 12px;
+            border-bottom: 1px solid #e7eaf0; vertical-align: top;
+        }
+        th { background: #f8f9fb; font-size: 13px; }
+        td { font-size: 14px; }
+        .status { font-weight: bold; white-space: nowrap; }
+        .muted { color: #697386; }
+        .driver-list { display: flex; gap: 10px; flex-wrap: wrap; }
+        .driver {
+            background: #e5f5ed; border-radius: 6px;
+            padding: 10px 12px; font-size: 14px;
+        }
+        .section { margin-top: 28px; }
+        @media (max-width: 600px) {
+            main { padding: 0 12px; }
+            th, td { padding: 9px; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Kasi2Kasi Dispatch</h1>
+    <p>Ride operations, driver availability and assignment overview</p>
+</header>
+
+<main>
+    <div class="actions">
+        <a class="button" href="{% url 'admin:bookings_transportrequest_changelist' %}">
+            Manage rides in Admin
+        </a>
+        <a class="button" href="{% url 'admin:accounts_userprofile_changelist' %}">
+            Manage driver profiles
+        </a>
+    </div>
+
+    <section class="cards" aria-label="Ride summary">
+        <div class="card"><span>Total rides</span><strong>{{ ride_counts.total }}</strong></div>
+        <div class="card"><span>Pending</span><strong>{{ ride_counts.pending }}</strong></div>
+        <div class="card"><span>Accepted</span><strong>{{ ride_counts.accepted }}</strong></div>
+        <div class="card"><span>Confirmed</span><strong>{{ ride_counts.confirmed }}</strong></div>
+        <div class="card"><span>Active assigned</span><strong>{{ ride_counts.assigned_active }}</strong></div>
+        <div class="card"><span>Unassigned active</span><strong>{{ ride_counts.unassigned }}</strong></div>
+        <div class="card"><span>Completed</span><strong>{{ ride_counts.completed }}</strong></div>
+        <div class="card"><span>Cancelled</span><strong>{{ ride_counts.cancelled }}</strong></div>
+    </section>
+
+    <section class="panel">
+        <h2>Approved drivers online</h2>
+        {% if available_drivers %}
+            <div class="driver-list">
+                {% for driver in available_drivers %}
+                    <div class="driver">
+                        <strong>{{ driver.get_full_name|default:driver.username }}</strong>
+                        <br><span class="muted">{{ driver.username }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="muted">No approved drivers are currently online.</p>
+        {% endif %}
+    </section>
+
+    <section class="section panel">
+        <h2>Ride dispatch list</h2>
+
+        <form method="get" class="filters">
+            <div>
+                <label for="status">Ride status</label>
+                <select name="status" id="status">
+                    <option value="">All statuses</option>
+                    {% for value, label in statuses %}
+                        <option value="{{ value }}"
+                            {% if selected_status == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label for="driver">Assigned driver</label>
+                <select name="driver" id="driver">
+                    <option value="">All drivers</option>
+                    {% for driver in available_drivers %}
+                        <option value="{{ driver.pk }}"
+                            {% if selected_driver == driver.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ driver.get_full_name|default:driver.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit">Apply filters</button>
+            <a class="button" href="{% url 'dispatch_overview' %}">Clear</a>
+        </form>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ride</th>
+                        <th>Customer</th>
+                        <th>Journey</th>
+                        <th>Departure</th>
+                        <th>Driver</th>
+                        <th>Status</th>
+                        <th>Assignment</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ride in rides %}
+                        <tr>
+                            <td>#{{ ride.pk }}</td>
+                            <td>
+                                {{ ride.customer_name }}
+                                {% if ride.customer %}
+                                    <br><span class="muted">{{ ride.customer.username }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <strong>From:</strong> {{ ride.pickup_location }}
+                                <br><strong>To:</strong> {{ ride.destination }}
+                            </td>
+                            <td>{{ ride.travel_datetime|date:"d M Y, H:i" }}</td>
+                            <td>
+                                {% if ride.assigned_driver %}
+                                    {{ ride.assigned_driver.get_full_name|default:ride.assigned_driver.username }}
+                                {% else %}
+                                    <span class="muted">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td class="status">{{ ride.get_status_display }}</td>
+                            <td>
+                                {% if ride.status == "PENDING" and not ride.assigned_driver %}
+                                    {% if available_drivers %}
+                                        <form method="post"
+                                              action="{% url 'assign_dispatch_ride' ride.pk %}">
+                                            {% csrf_token %}
+                                            <label for="driver-{{ ride.pk }}">Available driver</label>
+                                            <select name="driver_id" id="driver-{{ ride.pk }}" required>
+                                                <option value="">Choose driver</option>
+                                                {% for driver in available_drivers %}
+                                                    <option value="{{ driver.pk }}">
+                                                        {{ driver.get_full_name|default:driver.username }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <button type="submit">Assign ride</button>
+                                        </form>
+                                    {% else %}
+                                        <span class="muted">No available drivers</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted">Not eligible for quick assignment</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'admin:bookings_transportrequest_change' ride.pk %}">
+                                    Open ride
+                                </a>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="8">No rides match these filters.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>

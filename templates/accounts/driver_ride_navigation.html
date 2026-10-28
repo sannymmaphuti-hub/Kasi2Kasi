@@ -1,0 +1,917 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ride navigation | Kasi2Kasi</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="">
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+    <style>
+        .navigation-map {
+            width: 100%;
+            height: min(58vh, 560px);
+            min-height: 320px;
+            border-radius: 14px;
+            background: #e8edf0;
+        }
+        .navigation-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 18px 0;
+        }
+        .navigation-status {
+            padding: 12px;
+            border-radius: 8px;
+            background: #eef4f5;
+            overflow-wrap: anywhere;
+        }
+        .navigation-actions button:disabled {
+            opacity: .55;
+            cursor: not-allowed;
+        }
+        .gps-detail {
+            font-size: .95rem;
+            overflow-wrap: anywhere;
+        }
+        .route-status {
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 8px;
+            background: #eef4f5;
+            overflow-wrap: anywhere;
+        }
+        .route-summary {
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        #navigation-map .leaflet-routing-container {
+            max-height: 250px;
+            max-width: min(340px, 85vw);
+            overflow-y: auto;
+            font-size: 13px;
+        }
+        #navigation-map .leaflet-routing-alt {
+            max-height: none;
+        }
+    </style>
+</head>
+<body>
+<header class="site-header">
+    <a class="brand" href="{% url 'home' %}">
+        <span class="brand-mark">K2K</span>
+        <span>Kasi<span class="brand-highlight">2</span>Kasi</span>
+    </a>
+</header>
+
+<main class="form-page">
+    <div class="form-intro">
+        <span class="eyebrow">K2K DRIVER NAVIGATION · V0.4</span>
+        <h1>{{ ride.pickup_location }} → {{ ride.destination }}</h1>
+        <p>Ride #{{ ride.id }} · {{ ride.get_status_display }}</p>
+    </div>
+
+    <section class="booking-form">
+        <h2>Pickup</h2>
+        <p>{{ ride.pickup_location }}</p>
+        {% if pickup_coordinates %}
+            <p>Coordinates: {{ pickup_coordinates }}</p>
+        {% else %}
+            <p>Pickup coordinates are not available for this ride.</p>
+        {% endif %}
+
+        <h2>Destination</h2>
+        <p>{{ ride.destination }}</p>
+        {% if destination_coordinates %}
+            <p>Coordinates: {{ destination_coordinates }}</p>
+        {% else %}
+            <p>Destination coordinates are not available for this ride.</p>
+        {% endif %}
+
+        {% if google_maps_url %}
+            <div class="navigation-actions">
+                <a class="button button-green"
+                   href="{{ google_maps_url }}"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Navigate with Google Maps
+                </a>
+            </div>
+        {% endif %}
+
+        {% if ride.status == "CONFIRMED" and not pickup_confirmed %}
+            <section class="route-status">
+                <h2>Passenger pickup</h2>
+                <p>
+                    Navigation will continue to the pickup until you confirm
+                    that the passenger is actually with you.
+                </p>
+                <form method="post"
+                      action="{% url 'confirm_assigned_ride_pickup' ride.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="button button-green">
+                        I have picked up the passenger — navigate to destination
+                    </button>
+                </form>
+            </section>
+        {% elif pickup_confirmed %}
+            <p class="route-status" role="status">
+                Pickup confirmed. Destination navigation is enabled.
+            </p>
+        {% endif %}
+        <h2>Live GPS sharing</h2>
+        <p>
+            Your location is shared only after you press Start and grant
+            browser location permission. Press Stop to end sharing.
+        </p>
+
+        <div class="navigation-actions">
+            <button id="gps-start" class="button button-green" type="button">
+                Start GPS sharing
+            </button>
+            <button id="gps-stop" class="button button-outline" type="button" disabled>
+                Stop sharing
+            </button>
+        </div>
+
+        <p id="navigation-status" class="navigation-status" role="status" aria-live="polite">
+            GPS sharing is off. Start sharing when you are ready.
+        </p>
+        <p id="gps-coordinates" class="gps-detail">Driver position: not available</p>
+        <p id="gps-updated" class="gps-detail">Last GPS update: none</p>
+
+        <div id="navigation-map"
+             class="navigation-map"
+             role="region"
+             aria-label="Ride pickup, destination and live driver position map"></div>
+
+        <h2>Road navigation</h2>
+        <p id="route-status" class="route-status" role="status" aria-live="polite">
+            Preparing the road route…
+        </p>
+        <p id="route-summary" class="route-summary">
+            Route distance and estimated time will appear when available.
+        </p>
+        <section class="route-status" aria-label="Upcoming navigation instruction">
+            <strong>Next turn</strong>
+            <p id="next-turn">Waiting for the road route…</p>
+            <p id="turn-distance" class="gps-detail"></p>
+        </section>
+        <p id="off-route-status" class="gps-detail" role="status" aria-live="polite">
+            Off-route monitoring starts when GPS and route data are available.
+        </p>
+        <p class="gps-detail">
+            Road routes and turn instructions depend on the routing service
+            and internet connectivity. Follow road signs and traffic laws.
+            Google Maps remains available as an external navigation fallback.
+        </p>
+
+        <div class="navigation-actions">
+            <a class="button button-outline"
+               href="{% url 'assigned_driver_rides' %}">
+                Back to assigned rides
+            </a>
+        </div>
+    </section>
+</main>
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script>
+(() => {
+    const status = document.getElementById("navigation-status");
+    const startButton = document.getElementById("gps-start");
+    const stopButton = document.getElementById("gps-stop");
+    const coordinatesText = document.getElementById("gps-coordinates");
+    const updatedText = document.getElementById("gps-updated");
+    const routeStatus = document.getElementById("route-status");
+    const routeSummary = document.getElementById("route-summary");
+    const nextTurn = document.getElementById("next-turn");
+    const turnDistance = document.getElementById("turn-distance");
+    const offRouteStatus = document.getElementById("off-route-status");
+
+    const apiUrl = "{% url 'driver_location_api' ride.id %}";
+    const csrfToken = "{{ csrf_token }}";
+    const pickup = {% if pickup_coordinates %}[{{ ride.pickup_latitude }}, {{ ride.pickup_longitude }}]{% else %}null{% endif %};
+    const destination = {% if destination_coordinates %}[{{ ride.destination_latitude }}, {{ ride.destination_longitude }}]{% else %}null{% endif %};
+
+    let map = null;
+    let driverMarker = null;
+    let accuracyCircle = null;
+    let watchId = null;
+    let sharing = false;
+    let requestInProgress = false;
+    let lastSentAt = 0;
+    let pendingPosition = null;
+    let activeRoute = null;
+    let routingControl = null;
+    let lastRouteRequestAt = 0;
+    let offRouteReadings = 0;
+    let lastTurnIndex = -1;
+    let navigationPhase = {% if pickup_confirmed %}"to_destination"{% else %}"preview"{% endif %};
+    let currentGpsPoint = null;
+    let currentGpsAccuracy = null;
+    let rerouteInProgress = false;
+    let lastGpsReceivedAt = 0;
+    let gpsSharingStartedAt = 0;
+    let gpsWatchdogTimer = null;
+    let gpsRefreshTimer = null;
+    let gpsRefreshInProgress = false;
+
+    const GPS_STALE_AFTER_MS = 15000;
+    const GPS_FIRST_FIX_TIMEOUT_MS = 25000;
+
+    function setStatus(message) {
+        status.textContent = message;
+    }
+
+    function checkGpsFreshness() {
+        if (!sharing) {
+            return;
+        }
+
+        const now = Date.now();
+
+        if (lastGpsReceivedAt === 0) {
+            if (
+                gpsSharingStartedAt > 0 &&
+                now - gpsSharingStartedAt >= GPS_FIRST_FIX_TIMEOUT_MS
+            ) {
+                updatedText.textContent =
+                    "GPS warning: No location fix received yet. Check device location services and browser permission.";
+            }
+
+            return;
+        }
+
+        if (now - lastGpsReceivedAt >= GPS_STALE_AFTER_MS) {
+            const seconds = Math.floor(
+                (now - lastGpsReceivedAt) / 1000
+            );
+
+            updatedText.textContent =
+                `GPS warning: No fresh reading for ${seconds} seconds. Check your GPS signal. Navigation may be using an outdated position.`;
+        }
+    }
+
+    function startGpsWatchdog() {
+        if (gpsWatchdogTimer !== null) {
+            window.clearInterval(gpsWatchdogTimer);
+        }
+
+        gpsWatchdogTimer = window.setInterval(
+            checkGpsFreshness,
+            5000
+        );
+    }
+
+    function stopGpsWatchdog() {
+        if (gpsWatchdogTimer !== null) {
+            window.clearInterval(gpsWatchdogTimer);
+            gpsWatchdogTimer = null;
+        }
+
+        gpsSharingStartedAt = 0;
+        lastGpsReceivedAt = 0;
+    }
+
+    async function postAction(action, extra = {}) {
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken,
+                "X-Requested-With": "XMLHttpRequest"
+            },
+            body: JSON.stringify({action, ...extra})
+        });
+
+        let data;
+        try {
+            data = await response.json();
+        } catch (_) {
+            throw new Error("The server returned an unreadable response.");
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || `GPS request failed (${response.status}).`);
+        }
+
+        return data;
+    }
+
+    function initializeMap() {
+        if (typeof L === "undefined") {
+            setStatus("The map library could not load. GPS sharing controls may still work.");
+            return;
+        }
+
+        map = L.map("navigation-map");
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 22,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+        }).addTo(map);
+
+        const points = [];
+
+        if (pickup) points.push(pickup);
+        if (destination) points.push(destination);
+
+        if (pickup && destination) {
+            if (typeof L.Routing === "undefined") {
+                routeStatus.textContent =
+                    "Built-in road routing could not load. Use Google Maps for directions.";
+                routeSummary.textContent = "Road route unavailable.";
+            } else {
+                routeStatus.textContent = "Requesting a road-following route…";
+
+                routingControl = L.Routing.control({
+                    waypoints: [
+                        L.latLng(pickup[0], pickup[1]),
+                        L.latLng(destination[0], destination[1])
+                    ],
+                    router: L.Routing.osrmv1({
+                        serviceUrl: "https://router.project-osrm.org/route/v1",
+                        timeout: 20000
+                    }),
+                    routeWhileDragging: false,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    show: true,
+                    collapsible: true,
+                    fitSelectedRoutes: true,
+                    showAlternatives: false,
+                    lineOptions: {
+                        styles: [
+                            {color: "#ffffff", opacity: 0.9, weight: 10},
+                            {color: "#16845b", opacity: 0.95, weight: 6}
+                        ],
+                        extendToWaypoints: true,
+                        missingRouteTolerance: 0
+                    }
+                })
+                .on("routesfound", function(event) {
+                    const route = event.routes && event.routes[0];
+
+                    if (!route) {
+                        routeStatus.textContent =
+                            "No road route was returned. Use Google Maps instead.";
+                        routeSummary.textContent = "Route unavailable.";
+                        return;
+                    }
+
+                    const distanceKm = route.summary.totalDistance / 1000;
+                    const durationMinutes = Math.round(
+                        route.summary.totalTime / 60
+                    );
+
+                    routeSummary.textContent =
+                        `${distanceKm.toFixed(1)} km · about ${durationMinutes} min driving`;
+
+                    activeRoute = route;
+                    rerouteInProgress = false;
+                    lastTurnIndex = -1;
+                    offRouteReadings = 0;
+
+                    const phaseMessage = navigationPhase === "to_pickup"
+                        ? "Navigating to pickup."
+                        : navigationPhase === "to_destination"
+                            ? "Navigating to destination."
+                            : "Route preview loaded. Start GPS sharing to navigate to pickup.";
+
+                    routeStatus.textContent = phaseMessage;
+
+                    if (currentGpsPoint) {
+                        updateTurnGuidance(currentGpsPoint);
+                        updateOffRouteStatus(
+                            currentGpsPoint,
+                            currentGpsAccuracy
+                        );
+                    } else {
+                        updateTurnGuidance(null);
+                    }
+                })
+                .on("routingerror", function() {
+                    rerouteInProgress = false;
+                    activeRoute = null;
+
+                    routeStatus.textContent =
+                        "Could not calculate the road route. Check your internet connection or use Google Maps.";
+                    routeSummary.textContent = "Road route unavailable.";
+                    nextTurn.textContent =
+                        "Turn instructions are unavailable. Use Google Maps if needed.";
+                    turnDistance.textContent = "";
+                    offRouteStatus.textContent =
+                        "Route unavailable. Off-route monitoring is paused.";
+                })
+                .addTo(map);
+            }
+        } else if (points.length === 1) {
+            L.marker(points[0]).addTo(map).bindPopup("Ride location");
+            map.setView(points[0], 15);
+            routeStatus.textContent =
+                "A pickup and destination coordinate are both required for road routing.";
+            routeSummary.textContent = "Route unavailable.";
+        } else {
+            map.setView([-26.2041, 28.0473], 10);
+            routeStatus.textContent =
+                "Ride coordinates are missing. Use Google Maps if an address-based route is available.";
+            routeSummary.textContent = "Route unavailable.";
+        }
+
+        window.setTimeout(() => map.invalidateSize(), 100);
+    }
+
+    function distanceBetweenMeters(lat1, lon1, lat2, lon2) {
+        const radians = value => value * Math.PI / 180;
+        const dLat = radians(lat2 - lat1);
+        const dLon = radians(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(radians(lat1)) * Math.cos(radians(lat2)) *
+            Math.sin(dLon / 2) ** 2;
+
+        return 6371000 * 2 * Math.atan2(
+            Math.sqrt(a),
+            Math.sqrt(Math.max(0, 1 - a))
+        );
+    }
+
+
+
+    function getNavigationTarget() {
+        if (navigationPhase === "to_pickup") {
+            return pickup;
+        }
+
+        if (navigationPhase === "to_destination") {
+            return destination;
+        }
+
+        return null;
+    }
+
+    function recalculateRoute(point, reason, force = false) {
+        const target = getNavigationTarget();
+
+        if (!routingControl || !point || !target) {
+            return false;
+        }
+
+        const now = Date.now();
+
+        // Prevent repeated requests to the public routing service.
+        if (
+            !force &&
+            (
+                rerouteInProgress ||
+                now - lastRouteRequestAt < 30000
+            )
+        ) {
+            return false;
+        }
+
+        lastRouteRequestAt = now;
+        rerouteInProgress = true;
+        activeRoute = null;
+        offRouteReadings = 0;
+
+        routeStatus.textContent = reason;
+        nextTurn.textContent = "Recalculating the route…";
+        turnDistance.textContent = "";
+
+        try {
+            routingControl.setWaypoints([
+                L.latLng(point[0], point[1]),
+                L.latLng(target[0], target[1])
+            ]);
+
+            return true;
+        } catch (error) {
+            rerouteInProgress = false;
+            routeStatus.textContent =
+                "Route recalculation failed. Use Google Maps for directions.";
+            return false;
+        }
+    }
+
+    function updateTurnGuidance(point) {
+        if (
+            !activeRoute ||
+            !Array.isArray(activeRoute.coordinates) ||
+            !Array.isArray(activeRoute.instructions) ||
+            activeRoute.coordinates.length === 0
+        ) {
+            nextTurn.textContent =
+                "Turn guidance is waiting for route instructions.";
+            turnDistance.textContent = "";
+            return;
+        }
+
+        const coordinates = activeRoute.coordinates;
+        const instructions = activeRoute.instructions;
+
+        if (instructions.length === 0) {
+            nextTurn.textContent =
+                "Follow the displayed route to your destination.";
+            turnDistance.textContent = "";
+            return;
+        }
+
+        let nearestCoordinateIndex = 0;
+        let nearestDistance = Infinity;
+
+        if (point) {
+            coordinates.forEach((coordinate, index) => {
+                const distance = distanceBetweenMeters(
+                    point[0],
+                    point[1],
+                    coordinate.lat,
+                    coordinate.lng
+                );
+
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestCoordinateIndex = index;
+                }
+            });
+        }
+
+        // Leaflet Routing Machine instruction.index refers to a route
+        // coordinate index. Do not compare it with instruction.distance.
+        let selectedInstruction = instructions.find(instruction =>
+            Number.isInteger(instruction.index) &&
+            instruction.index >= nearestCoordinateIndex
+        );
+
+        if (!selectedInstruction) {
+            selectedInstruction = instructions[instructions.length - 1];
+        }
+
+        if (!selectedInstruction) {
+            return;
+        }
+
+        lastTurnIndex = instructions.indexOf(selectedInstruction);
+
+        nextTurn.textContent =
+            selectedInstruction.text ||
+            selectedInstruction.type ||
+            "Continue along the route.";
+
+        const maneuverIndex = selectedInstruction.index;
+        const maneuverCoordinate =
+            Number.isInteger(maneuverIndex) &&
+            maneuverIndex >= 0 &&
+            maneuverIndex < coordinates.length
+                ? coordinates[maneuverIndex]
+                : null;
+
+        if (point && maneuverCoordinate) {
+            const meters = distanceBetweenMeters(
+                point[0],
+                point[1],
+                maneuverCoordinate.lat,
+                maneuverCoordinate.lng
+            );
+
+            turnDistance.textContent = meters < 1000
+                ? `Approximately ${Math.round(meters)} m to this instruction`
+                : `Approximately ${(meters / 1000).toFixed(1)} km to this instruction`;
+        } else {
+            turnDistance.textContent = "";
+        }
+    }
+
+    function updateOffRouteStatus(point, accuracy) {
+        if (
+            navigationPhase === "preview" ||
+            !activeRoute ||
+            !Array.isArray(activeRoute.coordinates) ||
+            activeRoute.coordinates.length === 0
+        ) {
+            offRouteStatus.textContent =
+                "Off-route monitoring is waiting for an active navigation route.";
+            offRouteReadings = 0;
+            return;
+        }
+
+        if (!Number.isFinite(accuracy) || accuracy > 50) {
+            offRouteStatus.textContent =
+                "GPS accuracy is too low to assess the route reliably.";
+            offRouteReadings = 0;
+            return;
+        }
+
+        let nearestDistance = Infinity;
+
+        activeRoute.coordinates.forEach(coordinate => {
+            const distance = distanceBetweenMeters(
+                point[0],
+                point[1],
+                coordinate.lat,
+                coordinate.lng
+            );
+
+            nearestDistance = Math.min(nearestDistance, distance);
+        });
+
+        const threshold = Math.max(60, accuracy * 1.5);
+
+        if (nearestDistance > threshold) {
+            offRouteReadings += 1;
+
+            if (offRouteReadings >= 3) {
+                offRouteStatus.textContent =
+                    "You may be off route. Checking whether recalculation is needed.";
+
+                if (nearestDistance > 150) {
+                    recalculateRoute(
+                        point,
+                        "You appear to be off route. Recalculating from your current position…"
+                    );
+                }
+            } else {
+                offRouteStatus.textContent =
+                    "Checking route alignment…";
+            }
+
+            return;
+        }
+
+        offRouteReadings = 0;
+        offRouteStatus.textContent =
+            "You appear to be following the planned route.";
+    }
+
+    function handleNavigationProgress(point, accuracy) {
+        currentGpsPoint = point;
+        currentGpsAccuracy = accuracy;
+
+        // Start with directions from the driver to the pickup.
+        if (navigationPhase === "preview" && pickup) {
+            navigationPhase = "to_pickup";
+
+            recalculateRoute(
+                point,
+                "Calculating your route to the pickup…",
+                true
+            );
+
+            return;
+        }
+
+
+        // Update guidance once; do not recursively call this handler.
+        if (activeRoute) {
+            updateTurnGuidance(point);
+            updateOffRouteStatus(point, accuracy);
+        }
+    }
+
+    function displayPosition(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+        const point = [lat, lon];
+
+        coordinatesText.textContent =
+            `Driver position: ${lat.toFixed(6)}, ${lon.toFixed(6)} (accuracy approximately ${Math.round(accuracy)} m)`;
+        updatedText.textContent =
+            `Last GPS reading: ${new Date(position.timestamp).toLocaleString()}`;
+
+        if (!map || typeof L === "undefined") {
+            return;
+        }
+
+        if (!driverMarker) {
+            driverMarker = L.circleMarker(point, {
+                radius: 9,
+                color: "#ffffff",
+                weight: 3,
+                fillColor: "#1677ff",
+                fillOpacity: 1
+            }).addTo(map).bindPopup("Your live position");
+        } else {
+            driverMarker.setLatLng(point);
+        }
+
+        if (!accuracyCircle) {
+            accuracyCircle = L.circle(point, {
+                radius: accuracy,
+                color: "#1677ff",
+                weight: 1,
+                fillOpacity: 0.08
+            }).addTo(map);
+        } else {
+            accuracyCircle.setLatLng(point);
+            accuracyCircle.setRadius(accuracy);
+        }
+
+        // Keep the driver visible while updating route guidance.
+        map.panTo(point, {animate: true, duration: 0.4});
+
+        handleNavigationProgress(point, accuracy);
+    }
+
+    async function sendLatestPosition() {
+        if (!sharing || !pendingPosition || requestInProgress) {
+            return;
+        }
+
+        const now = Date.now();
+        // Limit network updates to approximately one every 3 seconds.
+        if (now - lastSentAt < 3000) {
+            return;
+        }
+
+        const position = pendingPosition;
+        pendingPosition = null;
+        requestInProgress = true;
+        lastSentAt = now;
+
+        try {
+            await postAction("update", {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            });
+        } catch (error) {
+            setStatus(`Sharing update failed: ${error.message}`);
+        } finally {
+            requestInProgress = false;
+            if (pendingPosition && sharing) {
+                window.setTimeout(sendLatestPosition, 3000);
+            }
+        }
+    }
+
+    function onPosition(position) {
+        if (!sharing) {
+            return;
+        }
+
+        lastGpsReceivedAt = Date.now();
+
+        displayPosition(position);
+        pendingPosition = position;
+        sendLatestPosition();
+    }
+
+    function onPositionError(error) {
+        let message = "Unable to read your current location.";
+
+        if (error.code === error.PERMISSION_DENIED) {
+            message = "Location permission was denied. Allow location access in your browser to share GPS.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = "GPS position is unavailable. Check device location services and GPS reception.";
+        } else if (error.code === error.TIMEOUT) {
+            message = "GPS is taking too long to respond. Waiting for another position.";
+        }
+
+        setStatus(message);
+    }
+
+    function requestFreshPosition() {
+        if (
+            !sharing ||
+            !navigator.geolocation ||
+            gpsRefreshInProgress
+        ) {
+            return;
+        }
+
+        gpsRefreshInProgress = true;
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                gpsRefreshInProgress = false;
+                onPosition(position);
+            },
+            error => {
+                gpsRefreshInProgress = false;
+                onPositionError(error);
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 20000
+            }
+        );
+    }
+
+    async function startSharing() {
+        if (sharing) {
+            return;
+        }
+
+        if (!navigator.geolocation) {
+            setStatus("This browser does not support geolocation.");
+            return;
+        }
+
+        startButton.disabled = true;
+        setStatus("Requesting permission and starting GPS sharing…");
+
+        try {
+            await postAction("start");
+            sharing = true;
+            gpsSharingStartedAt = Date.now();
+            lastGpsReceivedAt = 0;
+            startGpsWatchdog();
+            stopButton.disabled = false;
+
+            watchId = navigator.geolocation.watchPosition(
+                onPosition,
+                onPositionError,
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 30000
+                }
+            );
+
+            if (gpsRefreshTimer !== null) {
+                window.clearInterval(gpsRefreshTimer);
+            }
+
+            requestFreshPosition();
+            gpsRefreshTimer = window.setInterval(
+                requestFreshPosition,
+                10000
+            );
+
+            if (lastGpsReceivedAt === 0) {
+                setStatus("GPS sharing is on. Waiting for your first location reading…");
+            } else {
+                setStatus("GPS sharing is on. Your location is updating.");
+            }
+        } catch (error) {
+            sharing = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            setStatus(`Could not start GPS sharing: ${error.message}`);
+        }
+    }
+
+    async function stopSharing() {
+        startButton.disabled = true;
+        stopButton.disabled = true;
+
+        sharing = false;
+        pendingPosition = null;
+        stopGpsWatchdog();
+
+        if (gpsRefreshTimer !== null) {
+            window.clearInterval(gpsRefreshTimer);
+            gpsRefreshTimer = null;
+        }
+
+        if (watchId !== null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+
+        try {
+            await postAction("stop");
+            setStatus("GPS sharing stopped. Your browser is no longer sending location updates.");
+        } catch (error) {
+            setStatus(`Browser GPS stopped, but the server could not confirm stopping: ${error.message}`);
+        } finally {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        }
+    }
+
+    startButton.addEventListener("click", startSharing);
+    stopButton.addEventListener("click", stopSharing);
+
+    window.addEventListener("pagehide", () => {
+        sharing = false;
+        stopGpsWatchdog();
+
+        if (gpsRefreshTimer !== null) {
+            window.clearInterval(gpsRefreshTimer);
+            gpsRefreshTimer = null;
+        }
+
+        if (watchId !== null && navigator.geolocation) {
+            navigator.geolocation.clearWatch(watchId);
+            watchId = null;
+        }
+    });
+
+    initializeMap();
+})();
+</script>
+</body>
+</html>

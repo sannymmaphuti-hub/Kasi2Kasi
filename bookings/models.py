@@ -23,6 +23,14 @@ class TransportRequest(models.Model):
         },
     )
 
+    # Original server-calculated estimate, if pricing was available.
+    estimated_fare = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
     proposed_fare = models.DecimalField(
         max_digits=10,
         decimal_places=2,
@@ -87,11 +95,51 @@ class TransportRequest(models.Model):
         default=Status.PENDING,
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    pickup_confirmed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the assigned driver explicitly confirmed passenger pickup.",
+    )
 
+    created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return (
             f"{self.customer_name}: "
             f"{self.pickup_location} -> {self.destination}"
         )
 
+
+
+class DriverLiveLocation(models.Model):
+    """Latest driver location for one assigned ride; no location history."""
+
+    ride = models.OneToOneField(
+        TransportRequest,
+        on_delete=models.CASCADE,
+        related_name="driver_live_location",
+    )
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="live_ride_locations",
+    )
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+    is_sharing = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Live location for ride {self.ride_id}"

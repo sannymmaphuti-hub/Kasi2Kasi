@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -33,10 +33,48 @@
         {% if rides %}
             {% for ride in rides %}
                 <section class="booking-form">
-                    <h2>{{ ride.pickup_location }} → {{ ride.destination }}</h2>
+                    <h2>{{ ride.pickup_location }} ├óΓÇáΓÇÖ {{ ride.destination }}</h2>
                     <p><strong>Travel date:</strong> {{ ride.travel_datetime|date:"d M Y, H:i" }}</p>
                     <p><strong>Passengers:</strong> {{ ride.passenger_count }}</p>
                     <p><strong>Status:</strong> {{ ride.get_status_display }}</p>
+                    {% if ride.status == "ACCEPTED" or ride.status == "CONFIRMED" %}
+                        <p>
+                            <a class="button button-green"
+                               href="{% url 'customer_ride_tracking_page' ride.id %}">
+                                Track driver
+                            </a>
+                        </p>
+                    {% endif %}
+
+                    {% if ride.status == "PENDING" %}
+                        <form method="post" action="{% url 'cancel_ride' ride.id %}">
+                            {% csrf_token %}
+                            <button class="button button-outline" type="submit">
+                                Cancel ride request
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    {% if ride.estimated_fare != None %}
+                        <p><strong>Original estimate (indicative):</strong> R{{ ride.estimated_fare|floatformat:2 }}</p>
+                    {% else %}
+                        <p><strong>Original estimate:</strong> Not available</p>
+                    {% endif %}
+                    {% if ride.status == "ACCEPTED" and ride.proposed_fare %}
+                        <form method="post" action="{% url 'confirm_ride_fare' ride.id %}">
+                            {% csrf_token %}
+                            <p>
+                                <strong>Proposed fare:</strong>
+                                R{{ ride.proposed_fare|floatformat:2 }}
+                            </p>
+                            <button class="button button-green" type="submit">
+                                Confirm fare and ride
+                            </button>
+                        </form>
+                    {% endif %}
+                    {% if ride.agreed_fare != None %}
+                        <p><strong>Agreed fare:</strong> R{{ ride.agreed_fare|floatformat:2 }}</p>
+                    {% endif %}
                     <p><strong>Request submitted:</strong> {{ ride.created_at|date:"d M Y, H:i" }}</p>
                 </section>
             {% endfor %}

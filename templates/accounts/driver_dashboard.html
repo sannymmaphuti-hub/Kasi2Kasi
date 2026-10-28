@@ -6,6 +6,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Driver dashboard | Kasi2Kasi</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        .driver-overview {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        .driver-overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.85rem;
+            margin: 1rem 0 1.75rem;
+        }
+        .driver-overview-card,
+        .driver-upcoming-card {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+        }
+        .driver-overview-card span {
+            display: block;
+            font-size: 0.88rem;
+            color: #475569;
+        }
+        .driver-overview-card strong {
+            display: block;
+            margin-top: 0.35rem;
+            font-size: 1.7rem;
+        }
+        .driver-upcoming-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+        .driver-upcoming-card h4 {
+            margin: 0 0 0.65rem;
+        }
+        .driver-upcoming-card p {
+            margin: 0.35rem 0;
+            overflow-wrap: anywhere;
+        }
+    </style>
 </head>
 <body>
     <header class="site-header">
@@ -45,7 +86,90 @@
             {% endif %}
 
             {% if profile.driver_status == "APPROVED" %}
+                <section class="availability-panel">
+                    <h3>Driver availability</h3>
+
+                    {% if profile.is_available %}
+                        <p class="success-message">
+                            You are currently <strong>ONLINE</strong> and available for new ride assignments.
+                        </p>
+                        <form method="post" action="{% url 'toggle_driver_availability' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="available" value="off">
+                            <button class="button button-outline" type="submit">
+                                Go offline
+                            </button>
+                        </form>
+                    {% else %}
+                        <p>You are currently <strong>OFFLINE</strong> and will not receive new ride assignments.</p>
+                        <form method="post" action="{% url 'toggle_driver_availability' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="available" value="on">
+                            <button class="button button-green" type="submit">
+                                Go online
+                            </button>
+                        </form>
+                    {% endif %}
+
+                    <p class="form-disclaimer">
+                        Going offline does not cancel rides already assigned to you.
+                    </p>
+                </section>
                 <p><a class="button button-green" href="{% url 'assigned_driver_rides' %}">View my assigned rides</a></p>
+                <p><a class="button button-outline" href="{% url 'driver_vehicle_management' %}">Manage my vehicles</a></p>
+
+                <section class="driver-overview" aria-labelledby="driver-overview-heading">
+                    <h2 id="driver-overview-heading">Your ride overview</h2>
+                    <p class="form-disclaimer">A quick summary of rides assigned to your account.</p>
+
+                    <div class="driver-overview-grid">
+                        <article class="driver-overview-card">
+                            <span>Total assigned</span>
+                            <strong>{{ dashboard_counts.assigned }}</strong>
+                        </article>
+                        <article class="driver-overview-card">
+                            <span>Awaiting your action</span>
+                            <strong>{{ dashboard_counts.pending }}</strong>
+                        </article>
+                        <article class="driver-overview-card">
+                            <span>Accepted</span>
+                            <strong>{{ dashboard_counts.accepted }}</strong>
+                        </article>
+                        <article class="driver-overview-card">
+                            <span>Confirmed</span>
+                            <strong>{{ dashboard_counts.confirmed }}</strong>
+                        </article>
+                        <article class="driver-overview-card">
+                            <span>Completed</span>
+                            <strong>{{ dashboard_counts.completed }}</strong>
+                        </article>
+                    </div>
+
+                    <h3>Next upcoming journeys</h3>
+                    {% if dashboard_upcoming_rides %}
+                        <div class="driver-upcoming-list">
+                            {% for ride in dashboard_upcoming_rides %}
+                                <article class="driver-upcoming-card">
+                                    <h4>{{ ride.pickup_location }} &rarr; {{ ride.destination }}</h4>
+                                    <p><strong>Travel time:</strong> {{ ride.travel_datetime|date:"D, d M Y H:i" }}</p>
+                                    <p><strong>Status:</strong> {{ ride.get_status_display }}</p>
+                                    {% if ride.estimated_fare != None %}
+                                        <p><strong>Original estimate (indicative):</strong> R{{ ride.estimated_fare|floatformat:2 }}</p>
+                                    {% else %}
+                                        <p><strong>Original estimate:</strong> Not available</p>
+                                    {% endif %}
+                                    {% if ride.agreed_fare != None %}
+                                        <p><strong>Agreed fare:</strong> R{{ ride.agreed_fare|floatformat:2 }}</p>
+                                    {% elif ride.proposed_fare %}
+                                        <p><strong>Proposed fare:</strong> R{{ ride.proposed_fare|floatformat:2 }}</p>
+                                    {% endif %}
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>No upcoming active journeys. New assignments will appear here.</p>
+                    {% endif %}
+                </section>
             {% endif %}
             <p class="form-disclaimer">
                 Account type: {{ profile.get_role_display }}.
@@ -82,7 +206,6 @@
             {% else %}
                 Add your profile picture
             {% endif %}
-            <span aria-hidden="true">→</span>
         </a>
     </div>
 </section>
